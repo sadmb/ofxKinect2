@@ -9,7 +9,7 @@ It requires Kinect2 device and KinectSDK-v2.0-DevPreview1311 installed.
 
 Kinect SDK only works on 64bit application on Windows 8.
 
-You can find 64bit OF blanch below.  
+You can find 64bit OF branch below.  
 https://github.com/sadmb/openFrameworks/tree/Win64
 
 [Note] You should run KinectService while running Kinect2 app.
