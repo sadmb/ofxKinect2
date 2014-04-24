@@ -305,7 +305,6 @@ void Stream::threadedFunction()
 		{
 			if (readFrame())
 			{
-				setPixels(frame);
 				kinect2_timestamp = frame.timestamp;
 				texture_needs_update = true;
 			}
@@ -519,6 +518,7 @@ bool ColorStream::readFrame()
 		if (SUCCEEDED(hr))
 		{
 			readed = true;
+			setPixels(frame);
 		}
 		safe_release(p_frame_description);
 	}
@@ -726,6 +726,7 @@ bool DepthStream::readFrame()
 		if (SUCCEEDED(hr))
 		{
 			readed = true;
+			setPixels(frame);
 		}
 		safe_release(p_frame_description);
 	}
@@ -896,6 +897,7 @@ bool IrStream::readFrame()
 		if (SUCCEEDED(hr))
 		{
 			readed = true;
+			setPixels(frame);
 		}
 		safe_release(p_frame_description);
 	}

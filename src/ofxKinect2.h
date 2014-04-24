@@ -20,6 +20,7 @@ namespace ofxKinect2
 	class ColorStream;
 	class DepthStream;
 	class ColorMappingStream;
+	class BodyTracker;
 	
 	class Recorder;
 
@@ -280,7 +281,40 @@ protected:
 
 
 };
+/*
+class ofxKinect2::BodyTracker : public ofThread
+{
+	virtual ~BodyTracker();
 
+	bool setup(ofxKinect2::Device& device);
+	void exit();
+
+	void clear();
+
+	ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); }
+	ofPixels getPixelsRef(int _near, int _far, bool invert = false);
+
+	void draw();
+
+	ofCamera getOverlayCamera() { return overlay_camera; }
+
+	size_t getNumBody() const { return bodies_arr.size(); }
+	Body::Ref getBody(size_t index) { return bodies_arr.at(index); }
+
+protected:
+
+	void threadedFunction();
+
+	DoubleBuffer<ofShortPixels> pix;
+	Device* device;
+
+	Frame frame;
+	StreamHandle stream;
+
+	vecctor<Body::Ref> bodies_arr;
+
+}
+*/
 /*
 class ofxKinect2::ColorMappingStream : public ofxKinect2::Stream
 {
