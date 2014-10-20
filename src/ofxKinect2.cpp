@@ -24,66 +24,6 @@ using namespace ofxKinect2;
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-int Device::listDevices()
-{
-	ofxKinect2::init();
-	int i;
-	vector<DeviceHandle> device_list = _getCollection();
-	for (i = 0; i < device_list.size(); i++)
-	{
-		WCHAR* unique_id;
-		device_list[i].kinect2->get_UniqueKinectId(MAX_STR, unique_id);
-		ofLogNotice("ofxKinect2") << "[" + ofToString(i) + "] " << ofToString(unique_id);
-	}
-	return i;
-}
-
-//----------------------------------------------------------
-vector<DeviceHandle> Device::_getCollection()
-{
-	vector<DeviceHandle> collection;
-	IKinectSensorCollection* p_kinect_collection = NULL;
-	HRESULT hr;
-	hr = GetKinectSensorCollection(&p_kinect_collection);
-
-	if (SUCCEEDED(hr))
-	{
-		if (p_kinect_collection != NULL)
-		{
-			IEnumKinectSensor* p_enum = NULL;
-			if (SUCCEEDED(hr))
-			{
-				hr = p_kinect_collection->get_Enumerator(&p_enum);
-
-				if (SUCCEEDED(hr))
-				{
-					while (true)
-					{
-						IKinectSensor* p_kinect = NULL;
-						hr = p_enum->GetNext(&p_kinect);
-
-						if (SUCCEEDED(hr))
-						{
-							DeviceHandle handle;
-							handle.kinect2 = p_kinect;
-							collection.push_back(handle);
-						}
-						else
-						{
-							safe_release(p_kinect);
-						}
-					}
-				}
-
-			}
-			safe_release(p_enum);
-		}
-	}
-	safe_release(p_kinect_collection);
-	return collection;
-}
-
-//----------------------------------------------------------
 Device::Device() : recorder(NULL), enable_depth_color_sync(false), mapper(NULL)
 {
 	device.kinect2 = NULL;
@@ -111,29 +51,6 @@ bool Device::setup()
 	}
 
 	return false;
-}
-
-//----------------------------------------------------------
-bool Device::setup(int device_id)
-{
-	ofxKinect2::init();
-
-	vector<DeviceHandle> device_list = _getCollection();
-
-	if (device_id < 0
-		|| device_id >= device_list.size())
-	{
-		ofLogFatalError("ofxKinect2::Device") << "invalid device id";
-		
-		listDevices();
-		
-		return false;
-	}
-
-	device = device_list[device_id];
-	device.kinect2->Open();
-
-	return true;
 }
 
 //----------------------------------------------------------

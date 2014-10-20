@@ -45,10 +45,7 @@ public:
 	Device();
 	~Device();
 
-	static int listDevices();
-
 	bool setup();
-	bool setup(int device_id);
 	bool setup(string kinect2_file_path);
 
 	void exit();
@@ -78,9 +75,7 @@ public:
 	const ICoordinateMapper* getMapper() const { return mapper; }
 
 protected:
-	//@internal
-	static vector<DeviceHandle> _getCollection();
-		
+
 	DeviceHandle device;
 	ICoordinateMapper* mapper;
 	vector<ofxKinect2::Stream*> streams;
