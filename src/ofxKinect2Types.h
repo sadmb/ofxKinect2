@@ -11,6 +11,7 @@ namespace ofxKinect2 {
 #define MAX_SENSORS 10
 	typedef union
 	{
+		IMultiSourceFrameReader* p_multi_source_frame_reader;
 		IColorFrameReader* p_color_frame_reader;
 		IBodyFrameReader* p_body_frame_reader;
 		IDepthFrameReader* p_depth_frame_reader;

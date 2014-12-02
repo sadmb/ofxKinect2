@@ -4,15 +4,11 @@ ofxKinect2
 Kinect2 wrapper for openFrameworks
 
 This is for Kinect2 preview version sdk
+http://www.microsoft.com/en-us/kinectforwindows/develop/default.aspx
 
-It requires Kinect2 device and KinectSDK-v2.0-DevPreview1311 installed.
+It requires Kinect2 device and KinectSDK-v2.0-PublicPreview1409-Setup installed.
 
-Kinect SDK only works on 64bit application on Windows 8.
-
-You can find 64bit OF branch below.  
-https://github.com/sadmb/openFrameworks/tree/Win64
-
-[Note] You should run KinectService while running Kinect2 app.
+Kinect v2 SDK only works on Windows 8.
 
 Usage: You should add Kinect2 include and library.
 

@@ -235,7 +235,7 @@ void Stream::threadedFunction()
 }
 
 //----------------------------------------------------------
-bool Stream::readFrame()
+bool Stream::readFrame(IMultiSourceFrame* p_multi_frame)
 {
 	return false;
 }
@@ -359,19 +359,35 @@ void Stream::draw(float x, float y, float w, float h)
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool ColorStream::readFrame()
+bool ColorStream::readFrame(IMultiSourceFrame* p_multi_frame)
 {
 	bool readed = false;
-	if(!stream.p_color_frame_reader)
+	if (!stream.p_color_frame_reader)
 	{
 		ofLogWarning("ofxKinect2::ColorStream") << "Stream is not open.";
 		return readed;
 	}
-	Stream::readFrame();
+	Stream::readFrame(p_multi_frame);
 
 	IColorFrame* p_frame = NULL;
+	
+	HRESULT hr;
+	if (!p_multi_frame)
+	{
+		hr = stream.p_color_frame_reader->AcquireLatestFrame(&p_frame);
+	}
+	else
+	{
+		IColorFrameReference* p_frame_reference = NULL;
+		hr = p_multi_frame->get_ColorFrameReference(&p_frame_reference);
 
-	HRESULT hr = stream.p_color_frame_reader->AcquireLatestFrame(&p_frame);
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_reference->AcquireFrame(&p_frame);
+		}
+
+		safe_release(p_frame_reference);
+	}
 
 	if (SUCCEEDED(hr))
 	{
@@ -570,7 +586,7 @@ float ColorStream::getGamma()
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool DepthStream::readFrame()
+bool DepthStream::readFrame(IMultiSourceFrame* p_multi_frame)
 {
 	bool readed = false;
 	if(!stream.p_depth_frame_reader)
@@ -578,11 +594,27 @@ bool DepthStream::readFrame()
 		ofLogWarning("ofxKinect2::DepthStream") << "Stream is not open.";
 		return readed;
 	}
-	Stream::readFrame();
+	Stream::readFrame(p_multi_frame);
 
 	IDepthFrame* p_frame = NULL;
 
-	HRESULT hr = stream.p_depth_frame_reader->AcquireLatestFrame(&p_frame);
+	HRESULT hr;
+	if (!p_multi_frame)
+	{
+		hr = stream.p_depth_frame_reader->AcquireLatestFrame(&p_frame);
+	}
+	else
+	{
+		IDepthFrameReference* p_frame_reference = NULL;
+		hr = p_multi_frame->get_DepthFrameReference(&p_frame_reference);
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_reference->AcquireFrame(&p_frame);
+		}
+
+		safe_release(p_frame_reference);
+	}
 
 	if (SUCCEEDED(hr))
 	{
@@ -756,7 +788,7 @@ bool DepthStream::updateMode()
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool IrStream::readFrame()
+bool IrStream::readFrame(IMultiSourceFrame* p_multi_frame)
 {
 	bool readed = false;
 	if(!stream.p_infrared_frame_reader)
@@ -768,7 +800,23 @@ bool IrStream::readFrame()
 
 	IInfraredFrame* p_frame = NULL;
 
-	HRESULT hr = stream.p_infrared_frame_reader->AcquireLatestFrame(&p_frame);
+	HRESULT hr;
+	if (!p_multi_frame)
+	{
+		hr = stream.p_infrared_frame_reader->AcquireLatestFrame(&p_frame);
+	}
+	else
+	{
+		IInfraredFrameReference* p_frame_reference = NULL;
+		hr = p_multi_frame->get_InfraredFrameReference(&p_frame_reference);
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_reference->AcquireFrame(&p_frame);
+		}
+
+		safe_release(p_frame_reference);
+	}
 
 	if (SUCCEEDED(hr))
 	{
@@ -899,13 +947,12 @@ bool IrStream::updateMode()
 	return false;
 }
 
-/*
 //----------------------------------------------------------
 #pragma mark - ColorMappingStream
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool ColorMappingStream::readFrame()
+bool ColorMappingStream::readFrame(IMultiSourceFrame* p_multi_frame)
 {
 	bool readed = false;
 	if (!stream.p_multi_source_frame_reader)
@@ -919,14 +966,11 @@ bool ColorMappingStream::readFrame()
 		return readed;
 	}
 
-	Stream::readFrame();
+	Stream::readFrame(p_multi_frame);
 
 	IMultiSourceFrame* p_frame = NULL;
-    IDepthFrame* p_depth_frame = NULL;
-    IColorFrame* p_color_frame = NULL;
-    IBodyIndexFrame* p_body_index_frame = NULL;
-
 	HRESULT hr = stream.p_multi_source_frame_reader->AcquireLatestFrame(&p_frame);
+
     if (SUCCEEDED(hr))
     {
         IDepthFrameReference* p_depth_frame_reference = NULL;
@@ -1210,4 +1254,3 @@ bool ColorMappingStream::updateMode()
 	ofLogWarning("ofxKinect2::ColorMappingStream") << "Not supported yet.";
 	return false;
 }
-*/

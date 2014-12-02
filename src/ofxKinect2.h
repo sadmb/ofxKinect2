@@ -107,7 +107,9 @@ public:
 
 	bool isOpen() const
 	{
-		return stream.p_color_frame_reader != NULL;
+		bool b = (stream.p_audio_beam_frame_reader != NULL) || (stream.p_body_frame_reader != NULL) || (stream.p_body_index_frame_reader != NULL) || (stream.p_color_frame_reader != NULL) || (stream.p_depth_frame_reader != NULL)
+			|| (stream.p_infrared_frame_reader != NULL) || (stream.p_long_exposure_infrared_frame_reader != NULL) || (stream.p_multi_source_frame_reader != NULL);
+		return b;
 	}
 
 	int getWidth() const;
@@ -160,7 +162,7 @@ protected:
 	void threadedFunction();
 
 	bool setup(Device& device, SensorType sensor_type);
-	virtual bool readFrame();
+	virtual bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
 	virtual void setPixels(Frame frame);
 };
 
@@ -206,7 +208,7 @@ protected:
 	DoubleBuffer<ofPixels> pix;
 	unsigned char* buffer;
 
-	bool readFrame();
+	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
 	void setPixels(Frame frame);
 };
 
@@ -247,7 +249,7 @@ protected:
 	float far_value;
 	bool is_invert;
 
-	bool readFrame();
+	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
 	void setPixels(Frame frame);
 };
 
@@ -271,7 +273,7 @@ public:
 protected:
 	DoubleBuffer<ofShortPixels> pix;
 
-	bool readFrame();
+	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
 	void setPixels(Frame frame);
 
 
@@ -310,7 +312,6 @@ protected:
 
 }
 */
-/*
 class ofxKinect2::ColorMappingStream : public ofxKinect2::Stream
 {
 public:
@@ -349,12 +350,8 @@ protected:
 	BYTE* c_buffer;
 	ColorSpacePoint* color_map;
 
-	Frame color_frame;
-	Frame body_index_frame;
-
-	bool readFrame();
+	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
 	void setPixels(Frame frame);
 };
-*/
 
 #endif // OFX_KINECT2_H
