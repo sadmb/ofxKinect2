@@ -19,8 +19,8 @@ namespace ofxKinect2
 	class IrStream;
 	class ColorStream;
 	class DepthStream;
-	class ColorMappingStream;
-	class BodyTracker;
+//	class ColorMappingStream;
+//	class BodyTracker;
 	
 	class Recorder;
 
@@ -312,6 +312,7 @@ protected:
 
 }
 */
+/*
 class ofxKinect2::ColorMappingStream : public ofxKinect2::Stream
 {
 public:
@@ -353,5 +354,6 @@ protected:
 	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
 	void setPixels(Frame frame);
 };
+/**/
 
 #endif // OFX_KINECT2_H

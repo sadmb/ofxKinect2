@@ -81,6 +81,9 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 //--------------------------------------------------------------
 void ofApp::exit()
 {
+	color_.close();
+	depth_.close();
+	ir_.close();
 	device_->exit();
 	delete device_;
 	device_ = NULL;

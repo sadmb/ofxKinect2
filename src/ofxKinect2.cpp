@@ -68,6 +68,11 @@ bool Device::setup(string kinect2_file_path)
 void Device::exit()
 {
 //	stopRecording();
+	if(device.kinect2){
+		device.kinect2->Close();
+	}
+	safe_release(device.kinect2);
+
 	vector<Stream*>::iterator it;
 	int counter = 0;
 	while (!streams.empty())
@@ -90,10 +95,6 @@ void Device::exit()
 	{
 		safe_release(mapper);
 	}
-	if(device.kinect2){
-		device.kinect2->Close();
-	}
-	safe_release(device.kinect2);
 
 }
 
@@ -183,13 +184,13 @@ void Stream::exit()
 		if(s == this)
 		{
 			it = device->streams.erase(it);
+			close();
 		}
 		else
 		{
 			++it;
 		}
 	}
-	close();
 }
 
 //----------------------------------------------------------
@@ -202,7 +203,9 @@ bool Stream::open()
 //----------------------------------------------------------
 void Stream::close()
 {
-	if (lock())
+	while(!lock())
+	{
+	}
 	{
 		frame.frame_index = 0;
 		frame.stride = 0;
@@ -947,6 +950,7 @@ bool IrStream::updateMode()
 	return false;
 }
 
+/*
 //----------------------------------------------------------
 #pragma mark - ColorMappingStream
 //----------------------------------------------------------
@@ -1254,3 +1258,4 @@ bool ColorMappingStream::updateMode()
 	ofLogWarning("ofxKinect2::ColorMappingStream") << "Not supported yet.";
 	return false;
 }
+/**/
