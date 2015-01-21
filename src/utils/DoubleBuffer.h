@@ -28,6 +28,15 @@ public:
 		pix[1].allocate(w, h, channels);
 	}
 	
+	void deallocate()
+	{
+		if (!allocated) return;
+		allocated = false;
+
+		pix[0].clear();
+		pix[1].clear();
+	}
+
 	PixelType& getFrontBuffer() { return pix[front_buffer_index]; }
 	const PixelType& getFrontBuffer() const { return pix[front_buffer_index]; }
 	

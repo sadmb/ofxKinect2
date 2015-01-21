@@ -19,8 +19,9 @@ namespace ofxKinect2
 	class IrStream;
 	class ColorStream;
 	class DepthStream;
-//	class ColorMappingStream;
-//	class BodyTracker;
+
+	class Body;
+	class BodyStream;
 	
 	class Recorder;
 
@@ -108,15 +109,15 @@ public:
 	bool isOpen() const
 	{
 		bool b = (stream.p_audio_beam_frame_reader != NULL) || (stream.p_body_frame_reader != NULL) || (stream.p_body_index_frame_reader != NULL) || (stream.p_color_frame_reader != NULL) || (stream.p_depth_frame_reader != NULL)
-			|| (stream.p_infrared_frame_reader != NULL) || (stream.p_long_exposure_infrared_frame_reader != NULL) || (stream.p_multi_source_frame_reader != NULL);
+			|| (stream.p_infrared_frame_reader != NULL) || (stream.p_long_exposure_infrared_frame_reader != NULL);
 		return b;
 	}
 
 	int getWidth() const;
-	bool setWidth(int v);
+	virtual bool setWidth(int v);
 	int getHeight() const;
-	bool setHeight(int v);
-	bool setSize(int width, int height);
+	virtual bool setHeight(int v);
+	virtual bool setSize(int width, int height);
 
 	ofTexture& getTextureReference() {return tex;}
 
@@ -188,6 +189,10 @@ public:
 
 	void update();
 	bool updateMode();
+
+	bool setWidth(int v);
+	bool setHeight(int v);
+	bool setSize(int width, int height);
 
 	ofPixels& getPixelsRef() { return pix.getFrontBuffer(); }
 
@@ -278,40 +283,108 @@ protected:
 
 
 };
-/*
-class ofxKinect2::BodyTracker : public ofThread
+
+class ofxKinect2::Body
 {
-	virtual ~BodyTracker();
+	friend class BodyStream;
+public:
+	typedef ofPtr<Body> Ref;
 
-	bool setup(ofxKinect2::Device& device);
-	void exit();
+	Body() { }
 
-	void clear();
+	void setup(ofxKinect2::Device& device, IBody* body)
+	{
+		this->device = &device;
+		this->body = body;
+	}
 
-	ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); }
-	ofPixels getPixelsRef(int _near, int _far, bool invert = false);
+	void close();
+
+	void update();
+	void drawBody();
+	void drawBone(JointType joint0, JointType joint1);
+	void drawHandLeft();
+	void drawHandRight();
+	void drawHands();
+
+	inline int getId() const
+	{
+		UINT64 tracking_id;
+		body->get_TrackingId(&tracking_id);
+		int id = (int)tracking_id;
+		return id;
+	}
+
+	inline HandState getLeftHandState() const { return left_hand_state; }
+	inline HandState getRightHandState() const { return left_hand_state; }
+
+	inline size_t getNumJoints() { return JointType_Count; }
+	const Joint& getJoint(size_t idx) { return joints[idx]; }
+
+	const ofPoint& getJointPoint(size_t idx) { return joint_points[idx]; }
+	const vector<ofPoint> getJointPoints() { return joint_points; }
+
+private:
+	Device* device;
+	IBody* body;
+	vector<Joint> joints;
+	vector<ofPoint> joint_points;
+
+	HandState left_hand_state;
+	HandState right_hand_state;
+
+	ofPoint bodyToScreen(const CameraSpacePoint& bodyPoint, int width, int height);
+};
+
+class ofxKinect2::BodyStream : public Stream
+{
+public:
+	bool setup(ofxKinect2::Device& device)
+	{
+		return Stream::setup(device, SENSOR_BODY);
+	}
+	bool open();
+	void close();
+
+	void update();
+	bool updateMode();
 
 	void draw();
+	void drawHands();
+	void drawHandLeft();
+	void drawHandRight();
 
-	ofCamera getOverlayCamera() { return overlay_camera; }
+	void draw(int x, int y, int w, int h);
 
-	size_t getNumBody() const { return bodies_arr.size(); }
-	Body::Ref getBody(size_t index) { return bodies_arr.at(index); }
+
+	inline size_t getNumBodies() { return bodies.size(); }
+	const vector<Body> getBodies() { return bodies; }
+	const Body getBody(size_t idx)
+	{
+		for(int i = 0; i < bodies.size(); i++)
+		{
+			if(bodies[i].getId() == idx)
+			{
+				return bodies[idx];
+			}
+		}
+		return bodies[0];
+	}
+
+	ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); }
+	ofShortPixels getPixelsRef(int _near, int _far, bool invert = false);
+
+	ofPoint righthand_pos_;
 
 protected:
-
-	void threadedFunction();
-
 	DoubleBuffer<ofShortPixels> pix;
-	Device* device;
+	vector<Body> bodies;
 
-	Frame frame;
-	StreamHandle stream;
+	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
+	void setPixels(Frame frame);
 
-	vecctor<Body::Ref> bodies_arr;
+};
 
-}
-*/
 /*
 class ofxKinect2::ColorMappingStream : public ofxKinect2::Stream
 {
