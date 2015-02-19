@@ -132,6 +132,7 @@ public:
 	float getDiagonalFieldOfView();
 
 	inline bool isFrameNew() const { return is_frame_new; }
+	inline uint64_t getFrameTimestamp() const { return kinect2_timestamp; }
 
 	void draw(float x = 0, float y = 0);
 	virtual void draw(float x, float y, float w, float h);
