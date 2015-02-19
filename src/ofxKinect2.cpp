@@ -473,6 +473,8 @@ void ColorStream::setPixels(Frame frame)
 	int num_pixels = w * h;
 
 	const unsigned char * src = (const unsigned char*)frame.data;
+	if(!src)
+		return;
 	unsigned char *dst = pix.getBackBuffer().getPixels();
 
 	pix.getBackBuffer().setFromPixels(src, w, h, OF_IMAGE_COLOR_ALPHA);
@@ -720,6 +722,8 @@ void DepthStream::setPixels(Frame frame)
 	Stream::setPixels(frame);
 	
 	const unsigned short *pixels = (const unsigned short*)frame.data;
+	if(!pixels)
+		return;
 	int w = frame.width;
 	int h = frame.height;
 	
@@ -907,6 +911,8 @@ void IrStream::setPixels(Frame frame)
 	Stream::setPixels(frame);
 
 	const unsigned short *pixels = (const unsigned short*)frame.data;
+	if(!pixels)
+		return;
 	int w = frame.width;
 	int h = frame.height;
 	
