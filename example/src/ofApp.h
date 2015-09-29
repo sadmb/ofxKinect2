@@ -2,8 +2,6 @@
 
 #include "ofMain.h"
 #include "ofxKinect2.h"
-#include "VectorField.h"
-#include "Particle.h"
 
 class ofApp : public ofBaseApp{
 
@@ -31,10 +29,4 @@ public:
 	ofxKinect2::DepthStream depth_;
 	ofxKinect2::BodyStream body_stream_;
 		
-	VectorField VF;
-	int addMode;
-    vector <Particle> particles;
-    ofVboMesh mesh;
-    int particlesNum;
-    bool mousePress;
 };

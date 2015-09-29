@@ -10,12 +10,6 @@
     <ClCompile Include="..\..\..\addons\ofxKinect2\src\ofxKinect2.cpp">
       <Filter>addons\ofxKinect2\src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Particle.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\VectorField.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -55,12 +49,6 @@
     </ClInclude>
     <ClInclude Include="..\..\..\addons\ofxKinect2\src\utils\MeshGenerator.h">
       <Filter>addons\ofxKinect2\src\utils</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Particle.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\VectorField.h">
-      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
