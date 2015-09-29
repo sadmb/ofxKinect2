@@ -19,8 +19,9 @@ namespace ofxKinect2
 	class IrStream;
 	class ColorStream;
 	class DepthStream;
-	class ColorMappingStream;
-	class BodyTracker;
+
+	class Body;
+	class BodyStream;
 	
 	class Recorder;
 
@@ -40,7 +41,7 @@ class ofxKinect2::Device
 	friend class ofxKinect2::Stream;
 
 public:
-	ofEvent<ofEventArgs> updateDevice;
+	ofEvent<int> onUpdateStream;
 
 	Device();
 	~Device();
@@ -71,8 +72,13 @@ public:
 	DeviceHandle& get() { return device; }
 	const DeviceHandle& get() const { return device; }
 
-	ICoordinateMapper* getMapper() { return mapper; }
-	const ICoordinateMapper* getMapper() const { return mapper; }
+	ICoordinateMapper* getMapper() { 
+		if(!mapper)
+		{
+			HRESULT hr = device.kinect2->get_CoordinateMapper(&mapper);
+		}
+		return mapper;
+	}
 
 protected:
 
@@ -108,15 +114,15 @@ public:
 	bool isOpen() const
 	{
 		bool b = (stream.p_audio_beam_frame_reader != NULL) || (stream.p_body_frame_reader != NULL) || (stream.p_body_index_frame_reader != NULL) || (stream.p_color_frame_reader != NULL) || (stream.p_depth_frame_reader != NULL)
-			|| (stream.p_infrared_frame_reader != NULL) || (stream.p_long_exposure_infrared_frame_reader != NULL) || (stream.p_multi_source_frame_reader != NULL);
+			|| (stream.p_infrared_frame_reader != NULL) || (stream.p_long_exposure_infrared_frame_reader != NULL);
 		return b;
 	}
 
 	int getWidth() const;
-	bool setWidth(int v);
+	virtual bool setWidth(int v);
 	int getHeight() const;
-	bool setHeight(int v);
-	bool setSize(int width, int height);
+	virtual bool setHeight(int v);
+	virtual bool setSize(int width, int height);
 
 	ofTexture& getTextureReference() {return tex;}
 
@@ -188,6 +194,10 @@ public:
 
 	void update();
 	bool updateMode();
+
+	bool setWidth(int v);
+	bool setHeight(int v);
+	bool setSize(int width, int height);
 
 	ofPixels& getPixelsRef() { return pix.getFrontBuffer(); }
 
@@ -278,40 +288,124 @@ protected:
 
 
 };
-/*
-class ofxKinect2::BodyTracker : public ofThread
+
+class ofxKinect2::Body
 {
-	virtual ~BodyTracker();
+	friend class BodyStream;
+public:
+	typedef ofPtr<Body> Ref;
 
-	bool setup(ofxKinect2::Device& device);
-	void exit();
+	Body():left_hand_state(HandState_Unknown), right_hand_state(HandState_Unknown), is_tracked(false), is_update_scale(false) {
+		joints.resize(JointType_Count);
+		joint_points.resize(JointType_Count);
+	}
 
-	void clear();
+	void setup(ofxKinect2::Device& device)
+	{
+		this->device = &device;
+	}
+
+	void close();
+
+	void update(IBody* body);
+	void drawBody(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
+	void drawBone(JointType joint0, JointType joint1, int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
+	void drawHands(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
+	void drawHandLeft(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
+	void drawHandRight(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
+	void drawLean(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
+
+	void setId(UINT64 _id) { id = _id; }
+	inline int getId() const { return id;}
+
+	void setTracked(bool _is_tracked) { is_tracked = _is_tracked; }
+	inline bool isTracked() const { return is_tracked;}
+
+	inline HandState getLeftHandState() const { return left_hand_state; }
+	inline HandState getRightHandState() const { return left_hand_state; }
+
+	inline size_t getNumJoints() { return JointType_Count; }
+
+	const Joint& getJoint(size_t idx) { return joints[idx]; }
+
+	const ofPoint& getJointPoint(size_t idx) { return joint_points[idx]; }
+	const vector<ofPoint> getJointPoints() { return joint_points; }
+	 
+	const ofVec2f& getLean() { return body_lean; }
+private:
+	Device* device;
+	vector<Joint> joints;
+	vector<ofPoint> joint_points;
+	bool is_tracked;
+	UINT64 id;
+	TrackingState lean_state;
+	ofVec2f body_lean;
+	bool is_update_scale;
+
+	HandState left_hand_state;
+	HandState right_hand_state;
+
+	ofPoint jointToScreen(const JointType jointType, int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
+	ofPoint bodyPointToScreen(const CameraSpacePoint& bodyPoint, int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
+};
+
+class ofxKinect2::BodyStream : public Stream
+{
+public:
+	bool setup(ofxKinect2::Device& device)
+	{
+		for(int i = 0; i < BODY_COUNT; i++)
+		{
+			Body body;
+			body.setup(device);
+			bodies.push_back(body);
+		}
+		return Stream::setup(device, SENSOR_BODY);
+	}
+	bool open();
+	void close();
+
+	void update();
+	bool updateMode();
+
+	void draw(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
+	void drawBody(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
+	void drawBone(JointType joint0 = JointType_SpineBase, JointType joint1 = JointType_SpineMid, int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
+	void drawHands(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
+	void drawHandLeft(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
+	void drawHandRight(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
+	void drawLean(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
+
+
+	inline size_t getNumBodies() { return bodies.size(); }
+	const vector<Body> getBodies() { return bodies; }
+	const Body getBody(size_t idx)
+	{
+		for(int i = 0; i < bodies.size(); i++)
+		{
+			if(bodies[i].getId() == idx)
+			{
+				return bodies[idx];
+			}
+		}
+		return bodies[0];
+	}
 
 	ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); }
-	ofPixels getPixelsRef(int _near, int _far, bool invert = false);
+	ofShortPixels getPixelsRef(int _near, int _far, bool invert = false);
 
-	void draw();
-
-	ofCamera getOverlayCamera() { return overlay_camera; }
-
-	size_t getNumBody() const { return bodies_arr.size(); }
-	Body::Ref getBody(size_t index) { return bodies_arr.at(index); }
+	ofPoint righthand_pos_;
 
 protected:
-
-	void threadedFunction();
-
 	DoubleBuffer<ofShortPixels> pix;
-	Device* device;
+	vector<Body> bodies;
 
-	Frame frame;
-	StreamHandle stream;
+	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
+	void setPixels(Frame frame);
 
-	vecctor<Body::Ref> bodies_arr;
+};
 
-}
-*/
+/*
 class ofxKinect2::ColorMappingStream : public ofxKinect2::Stream
 {
 public:
@@ -353,5 +447,6 @@ protected:
 	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
 	void setPixels(Frame frame);
 };
+/**/
 
 #endif // OFX_KINECT2_H

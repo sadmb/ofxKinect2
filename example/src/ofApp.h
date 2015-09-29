@@ -2,30 +2,39 @@
 
 #include "ofMain.h"
 #include "ofxKinect2.h"
+#include "VectorField.h"
+#include "Particle.h"
 
 class ofApp : public ofBaseApp{
 
-	public:
-		void setup();
-		void update();
-		void draw();
+public:
+	void setup();
+	void update();
+	void draw();
 
-		void keyPressed(int key);
-		void keyReleased(int key);
-		void mouseMoved(int x, int y );
-		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void windowResized(int w, int h);
-		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);
+	void keyPressed(int key);
+	void keyReleased(int key);
+	void mouseMoved(int x, int y );
+	void mouseDragged(int x, int y, int button);
+	void mousePressed(int x, int y, int button);
+	void mouseReleased(int x, int y, int button);
+	void windowResized(int w, int h);
+	void dragEvent(ofDragInfo dragInfo);
+	void gotMessage(ofMessage msg);
 
-		void exit();
+	void exit();
 
-		ofxKinect2::Device* device_;
+	ofxKinect2::Device* device_;
 
-		ofxKinect2::IrStream ir_;
-		ofxKinect2::ColorStream color_;
-		ofxKinect2::DepthStream depth_;
+	ofxKinect2::IrStream ir_;
+	ofxKinect2::ColorStream color_;
+	ofxKinect2::DepthStream depth_;
+	ofxKinect2::BodyStream body_stream_;
 		
+	VectorField VF;
+	int addMode;
+    vector <Particle> particles;
+    ofVboMesh mesh;
+    int particlesNum;
+    bool mousePress;
 };

@@ -19,6 +19,11 @@ void ofApp::setup(){
 	{
 		ir_.open();
 	}
+	
+	if(body_stream_.setup(*device_))
+	{
+		body_stream_.open();
+	}
 }
 
 //--------------------------------------------------------------
@@ -28,9 +33,12 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
+	ofSetWindowTitle(ofToString(ofGetFrameRate()));
 	color_.draw();
 	depth_.draw(1920 - 512, 1080 - 424);
 	ir_.draw(1920 - 512, 1080 - 848);
+	body_stream_.draw(1920 - 512, 1080 - 424, 512, 424);
+
 }
 
 //--------------------------------------------------------------

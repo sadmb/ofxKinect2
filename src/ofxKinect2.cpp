@@ -68,6 +68,11 @@ bool Device::setup(string kinect2_file_path)
 void Device::exit()
 {
 //	stopRecording();
+	if(device.kinect2){
+		device.kinect2->Close();
+	}
+	safe_release(device.kinect2);
+
 	vector<Stream*>::iterator it;
 	int counter = 0;
 	while (!streams.empty())
@@ -90,10 +95,6 @@ void Device::exit()
 	{
 		safe_release(mapper);
 	}
-	if(device.kinect2){
-		device.kinect2->Close();
-	}
-	safe_release(device.kinect2);
 
 }
 
@@ -108,9 +109,13 @@ void Device::update()
 		s->is_frame_new = s->kinect2_timestamp != s->opengl_timestamp;
 		s->opengl_timestamp = s->kinect2_timestamp;
 	}
+	int val = 0;
+	ofNotifyEvent(onUpdateStream, val);
 
-	static ofEventArgs e;
-	ofNotifyEvent(updateDevice, e, this);
+	if(mapper)
+	{
+		safe_release(mapper);
+	}
 }
 
 //----------------------------------------------------------
@@ -123,7 +128,6 @@ void Device::setDepthColorSyncEnabled(bool b)
 		hr = device.kinect2->get_CoordinateMapper(&mapper);
 		if (SUCCEEDED(hr))
 		{
-
 		}
 		else
 		{
@@ -183,13 +187,13 @@ void Stream::exit()
 		if(s == this)
 		{
 			it = device->streams.erase(it);
+			close();
 		}
 		else
 		{
 			++it;
 		}
 	}
-	close();
 }
 
 //----------------------------------------------------------
@@ -202,7 +206,9 @@ bool Stream::open()
 //----------------------------------------------------------
 void Stream::close()
 {
-	if (lock())
+	while(!lock())
+	{
+	}
 	{
 		frame.frame_index = 0;
 		frame.stride = 0;
@@ -350,6 +356,7 @@ void Stream::draw(float x, float y, float w, float h)
 
 	if (tex.isAllocated())
 	{
+		ofSetColor(ofColor::white);
 		tex.draw(x, y, w, h);
 	}
 }
@@ -470,13 +477,36 @@ void ColorStream::setPixels(Frame frame)
 	int h = frame.height;
 	int num_pixels = w * h;
 
-	pix.allocate(w, h, 4);
-
 	const unsigned char * src = (const unsigned char*)frame.data;
 	unsigned char *dst = pix.getBackBuffer().getPixels();
 
 	pix.getBackBuffer().setFromPixels(src, w, h, OF_IMAGE_COLOR_ALPHA);
 	pix.swap();
+}
+
+//----------------------------------------------------------
+bool ColorStream::setWidth(int width)
+{
+	bool ret = Stream::setWidth(width);
+	pix.deallocate();
+	pix.allocate(frame.width, frame.height, 4);
+	return ret;
+}
+
+//----------------------------------------------------------
+bool ColorStream::setHeight(int height)
+{
+	bool ret = Stream::setHeight(height);
+	pix.allocate(frame.width, frame.height, 4);
+	return ret;
+}
+
+//----------------------------------------------------------
+bool ColorStream::setSize(int width, int height)
+{
+	bool ret = Stream::setSize(width, height);
+	pix.allocate(frame.width, frame.height, 4);
+	return ret;
 }
 
 //----------------------------------------------------------
@@ -523,6 +553,10 @@ bool ColorStream::open()
 		hr = p_frame_description->get_Width(&res_y);
 		frame.mode.resolution_x = res_x;
 		frame.mode.resolution_y = res_y;
+		frame.width = res_x;
+		frame.height = res_y;
+		pix.allocate(res_x, res_y, 4);
+
 	}
 	safe_release(p_frame_description);
 	safe_release(p_source);
@@ -948,6 +982,497 @@ bool IrStream::updateMode()
 }
 
 //----------------------------------------------------------
+#pragma mark - Body
+//----------------------------------------------------------
+
+//----------------------------------------------------------
+void Body::close()
+{
+
+}
+
+//----------------------------------------------------------
+void Body::update(IBody* body)
+{
+	joints.resize(JointType_Count);
+	joint_points.resize(JointType_Count);
+
+	HRESULT hr = body->get_HandLeftState(&left_hand_state);
+	hr = body->get_HandRightState(&right_hand_state);
+
+	body->get_LeanTrackingState(&lean_state);
+	PointF pnt;
+	body->get_Lean(&pnt);
+	CameraSpacePoint cpnt;
+	cpnt.X = pnt.X;
+	cpnt.Y = pnt.Y;
+	cpnt.Z = 0;
+	body_lean = bodyPointToScreen(cpnt, ofGetWidth(), ofGetHeight());
+
+	hr = body->GetJoints(JointType_Count, &joints.front());
+
+	if(SUCCEEDED(hr))
+	{
+		is_update_scale = false;
+	}
+}
+
+//----------------------------------------------------------
+ofPoint Body::jointToScreen(const JointType jointType, int x, int y, int w, int h)
+{
+	CameraSpacePoint bodyPoint = joints[jointType].Position;
+	return bodyPointToScreen(bodyPoint, x, y, w, h);
+}
+
+//----------------------------------------------------------
+ofPoint Body::bodyPointToScreen(const CameraSpacePoint& bodyPoint, int x, int y, int w, int h)
+{
+	// Calculate the body's position on the screen
+    DepthSpacePoint depthPoint = {0};
+	device->getMapper()->MapCameraPointToDepthSpace(bodyPoint, &depthPoint);
+
+	// TODO: width/ height
+    float screenPointX = static_cast<float>(depthPoint.X * w) / 512 + x;
+    float screenPointY = static_cast<float>(depthPoint.Y * h) / 424 + y;
+
+    return ofPoint(screenPointX, screenPointY);
+}
+
+//----------------------------------------------------------
+void Body::drawBody(int x, int y, int w, int h)
+{
+	if(is_tracked)
+	{
+		drawBone(JointType_Head, JointType_Neck, x, y, w , h);
+		drawBone(JointType_Neck, JointType_SpineShoulder, x, y, w , h);
+		drawBone(JointType_SpineShoulder, JointType_SpineMid, x, y, w , h);
+		drawBone(JointType_SpineMid, JointType_SpineBase, x, y, w , h);
+		drawBone(JointType_SpineShoulder, JointType_ShoulderLeft, x, y, w , h);
+		drawBone(JointType_SpineShoulder, JointType_ShoulderRight, x, y, w , h);
+		drawBone(JointType_SpineBase, JointType_HipLeft, x, y, w , h);
+		drawBone(JointType_SpineBase, JointType_HipRight, x, y, w , h);
+
+		drawBone(JointType_ShoulderLeft, JointType_ElbowLeft, x, y, w , h);
+		drawBone(JointType_ElbowLeft, JointType_WristLeft, x, y, w , h);
+		drawBone(JointType_WristLeft, JointType_HandLeft, x, y, w , h);
+		drawBone(JointType_HandLeft, JointType_HandTipLeft, x, y, w , h);
+		drawBone(JointType_WristLeft, JointType_ThumbLeft, x, y, w , h);
+
+		drawBone(JointType_ShoulderRight, JointType_ElbowRight, x, y, w , h);
+		drawBone(JointType_ElbowRight, JointType_WristRight, x, y, w , h);
+		drawBone(JointType_WristRight, JointType_HandRight, x, y, w , h);
+		drawBone(JointType_HandRight, JointType_HandTipRight, x, y, w , h);
+		drawBone(JointType_WristRight, JointType_ThumbRight, x, y, w , h);
+
+		drawBone(JointType_HipLeft, JointType_KneeLeft, x, y, w , h);
+		drawBone(JointType_KneeLeft, JointType_AnkleLeft, x, y, w , h);
+		drawBone(JointType_AnkleLeft, JointType_FootLeft, x, y, w , h);
+
+		drawBone(JointType_HipRight, JointType_KneeRight, x, y, w , h);
+		drawBone(JointType_KneeRight, JointType_AnkleRight, x, y, w , h);
+		drawBone(JointType_AnkleRight, JointType_FootRight, x, y, w , h);
+
+		ofPushStyle();
+		for(int i = 0; i < JointType_Count; ++i)
+		{
+			if(joints[i].TrackingState == TrackingState_Tracked)
+			{
+				ofSetColor(50, 200, 50);
+				ofEllipse(jointToScreen((JointType)i, x, y, w, h), 3, 3);
+			}
+		}
+		ofSetColor(ofColor::red);
+		ofDrawBitmapString(ofToString(id), jointToScreen(JointType_Head, x, y, w, h));
+		ofPopStyle();
+	}
+}
+
+//----------------------------------------------------------
+void Body::drawBone(JointType joint0, JointType joint1, int x, int y, int w, int h)
+{
+	if(is_tracked)
+	{
+		ofPushStyle();
+		TrackingState state0 = joints[joint0].TrackingState;
+		TrackingState state1 = joints[joint1].TrackingState;
+
+		if((state0 == TrackingState_NotTracked) || (state1 == TrackingState_NotTracked))
+		{
+			return;
+		}
+
+		if((state0 == TrackingState_Inferred) && (state1 == TrackingState_Inferred))
+		{
+			return;
+		}
+
+		if((state0 == TrackingState_Tracked) && (state1 == TrackingState_Tracked))
+		{
+			ofSetColor(ofColor::green);
+		}
+		else
+		{
+			ofSetColor(ofColor::gray);
+		}
+		ofLine(jointToScreen(joint0, x, y, w, h), jointToScreen(joint1, x, y, w, h));
+		ofPopStyle();
+	}
+}
+
+//----------------------------------------------------------
+void Body::drawHands(int x, int y, int w, int h)
+{
+	drawHandLeft();
+	drawHandRight();
+}
+
+//----------------------------------------------------------
+void Body::drawHandLeft(int x, int y, int w, int h)
+{
+	if(is_tracked)
+	{
+		ofPushStyle();
+		switch(left_hand_state)
+		{
+		case HandState_Closed:
+			ofSetColor(ofColor::red);
+			ofEllipse(jointToScreen(JointType_HandLeft, x, y, w, h), 30, 30);
+			break;
+		case HandState_Open:
+			ofSetColor(ofColor::green);
+			ofEllipse(jointToScreen(JointType_HandLeft, x, y, w, h), 30, 30);
+			break;
+		case HandState_Lasso:
+			ofSetColor(ofColor::blue);
+			ofEllipse(jointToScreen(JointType_HandLeft, x, y, w, h), 30, 30);
+			break;
+		}
+		ofPopStyle();
+	}
+}
+
+//----------------------------------------------------------
+void Body::drawHandRight(int x, int y, int w, int h)
+{
+	if(is_tracked)
+	{
+		ofPushStyle();
+		switch(right_hand_state)
+		{
+		case HandState_Closed:
+			ofSetColor(ofColor::red);
+			ofEllipse(jointToScreen(JointType_HandRight, x, y, w, h), 30, 30);
+			break;
+		case HandState_Open:
+			ofSetColor(ofColor::green);
+			ofEllipse(jointToScreen(JointType_HandRight, x, y, w, h), 30, 30);
+			break;
+		case HandState_Lasso:
+			ofSetColor(ofColor::blue);
+			ofEllipse(jointToScreen(JointType_HandRight, x, y, w, h), 30, 30);
+			break;
+		}
+		ofPopStyle();
+	}
+}
+
+//----------------------------------------------------------
+void Body::drawLean(int x, int y, int w, int h)
+{
+	if(is_tracked)
+	{
+		if(lean_state == TrackingState_Tracked)
+		{
+			ofPushStyle();
+			ofSetColor(ofColor::magenta);
+			ofLine(jointToScreen(JointType_SpineBase, x, y, w, h), jointToScreen(JointType_SpineBase, x, y, w, h) + body_lean);
+			ofPopStyle();
+		}
+	}
+}
+
+//----------------------------------------------------------
+#pragma mark - BodyStream
+//----------------------------------------------------------
+
+//----------------------------------------------------------
+bool BodyStream::readFrame(IMultiSourceFrame* p_multi_frame)
+{
+	bool readed = false;
+	if(!stream.p_body_frame_reader)
+	{
+		ofLogWarning("ofxKinect2::BodyStream") << "Stream is not open.";
+		return readed;
+	}
+
+	IBodyFrame* p_frame = NULL;
+
+	HRESULT hr;
+	if (!p_multi_frame)
+	{
+		hr = stream.p_body_frame_reader->AcquireLatestFrame(&p_frame);
+	}
+	else
+	{
+		IBodyFrameReference* p_frame_reference = NULL;
+		hr = p_multi_frame->get_BodyFrameReference(&p_frame_reference);
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_reference->AcquireFrame(&p_frame);
+		}
+
+		safe_release(p_frame_reference);
+	}
+
+	if (SUCCEEDED(hr))
+	{
+		hr = p_frame->get_RelativeTime((INT64*)&frame.timestamp);
+
+		IBody* ppBodies[BODY_COUNT] = {0};
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame->GetAndRefreshBodyData(_countof(ppBodies), ppBodies);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			/*
+			readed = true;
+			righthand_pos_ =  ofPoint(0, 0);
+			float nearest = 10000000;
+			for(int i = 0; i < _countof(ppBodies); ++i)
+			{
+				if(ppBodies[i])
+				{
+					Joint joints[JointType_Count];
+					HandState right_hand_state = HandState_Unknown;
+
+					ppBodies[i]->get_HandRightState(&right_hand_state);
+
+					HRESULT hr = ppBodies[i]->GetJoints(_countof(joints), joints);
+
+					if(SUCCEEDED(hr))
+					{
+						if(joints[JointType_HandRight].TrackingState == TrackingState_Tracked)
+						{
+							float z_pos = joints[JointType_HandRight].Position.Z;
+							if(z_pos < nearest)
+							{
+								nearest = z_pos;
+								// Calculate the body's position on the screen
+								DepthSpacePoint depthPoint = {0};
+								ICoordinateMapper* mapper = NULL;
+								hr = device->get().kinect2->get_CoordinateMapper(&mapper);
+								if(SUCCEEDED(hr))
+								{
+									mapper->MapCameraPointToDepthSpace(joints[JointType_HandRight].Position, &depthPoint);
+
+									// TODO: width/ height
+									float screenPointX = static_cast<float>(depthPoint.X * 1920) / 512;
+									float screenPointY = static_cast<float>(depthPoint.Y * 1080) / 424;
+
+									righthand_pos_ =  ofPoint(screenPointX, screenPointY);
+								}
+
+								safe_release(mapper);
+							}
+						}
+					}
+				}
+			}
+
+			/**/
+			for(int i = 0; i < _countof(ppBodies); ++i)
+			{
+				BOOLEAN tracked = false;
+				if(ppBodies[i])
+				{
+					ppBodies[i]->get_IsTracked(&tracked);
+					UINT64 id = -1;
+					ppBodies[i]->get_TrackingId(&id);
+					bool isExist = false;
+					bodies[i].setTracked((bool)tracked);
+					bodies[i].setId(id);
+					if(tracked)
+					{
+						bodies[i].update(ppBodies[i]);
+					}
+				}
+			}
+			/**/
+			for(int i = 0; i < _countof(ppBodies); ++i)
+			{
+				safe_release(ppBodies[i]);
+			}
+			readed = true;
+			setPixels(frame);
+		}
+
+	}
+
+	safe_release(p_frame);
+
+	return readed;
+}
+
+//----------------------------------------------------------
+void BodyStream::draw(int x, int y, int w, int h, size_t idx)
+{
+	for(int i = 0; i < bodies.size(); i++)
+	{
+		if(idx == BODY_COUNT || idx == i)
+		{
+			bodies[i].drawBody(x, y, w, h);
+			bodies[i].drawHands(x, y, w, h);
+			bodies[i].drawLean(x, y, w, h);
+		}
+	}
+}
+
+//----------------------------------------------------------
+void BodyStream::drawBody(int x, int y, int w, int h, size_t idx)
+{
+	for(int i = 0; i < bodies.size(); i++)
+	{
+		if(idx == BODY_COUNT || idx == i)
+		{
+			bodies[i].drawBody(x, y, w, h);
+		}
+	}
+}
+
+//----------------------------------------------------------
+void BodyStream::drawBone(JointType joint0, JointType joint1, int x, int y, int w, int h, size_t idx)
+{
+	for(int i = 0; i < bodies.size(); i++)
+	{
+		if(idx == BODY_COUNT || idx == i)
+		{
+			bodies[i].drawBone(joint0, joint1, x, y, w, h);
+		}
+	}
+}
+
+//----------------------------------------------------------
+void BodyStream::drawHands(int x, int y, int w, int h, size_t idx)
+{
+	for(int i = 0; i < bodies.size(); i++)
+	{
+		if(idx == BODY_COUNT || idx == i)
+		{
+			bodies[i].drawHands(x, y, w, h);
+		}
+	}
+}
+
+//----------------------------------------------------------
+void BodyStream::drawHandLeft(int x, int y, int w, int h, size_t idx)
+{
+	for(int i = 0; i < bodies.size(); i++)
+	{
+		if(idx == BODY_COUNT || idx == i)
+		{
+			bodies[i].drawHandLeft(x, y, w, h);
+		}
+	}
+}
+
+//----------------------------------------------------------
+void BodyStream::drawHandRight(int x, int y, int w, int h, size_t idx)
+{
+	for(int i = 0; i < bodies.size(); i++)
+	{
+		if(idx == BODY_COUNT || idx == i)
+		{
+			bodies[i].drawHandRight(x, y, w, h);
+		}
+	}
+}
+
+//----------------------------------------------------------
+void BodyStream::drawLean(int x, int y, int w, int h, size_t idx)
+{
+	for(int i = 0; i < bodies.size(); i++)
+	{
+		if(idx == BODY_COUNT || idx == i)
+		{
+			bodies[i].drawLean(x, y, w, h);
+		}
+	}
+}
+
+//----------------------------------------------------------
+void BodyStream::setPixels(Frame frame)
+{
+	Stream::setPixels(frame);
+}
+
+//----------------------------------------------------------
+void BodyStream::update()
+{
+	if (lock())
+	{
+		Stream::update();
+		unlock();
+	}
+}
+
+//----------------------------------------------------------
+bool BodyStream::open()
+{
+	if (!device->isOpen())
+	{
+		ofLogWarning("ofxKinect2::BodyStream") << "No ready Kinect2 found.";
+		return false;
+	}
+
+	IBodyFrameSource* p_source = NULL;
+	HRESULT hr;
+
+	hr = device->get().kinect2->get_BodyFrameSource(&p_source);
+
+	if (SUCCEEDED(hr))
+	{
+		hr = p_source->OpenReader(&stream.p_body_frame_reader);
+	}
+
+	safe_release(p_source);
+	if (FAILED(hr))
+	{
+		ofLogWarning("ofxKinect2::BodyStream") << "Can't open stream.";
+		return false;
+	}
+
+	return Stream::open();
+}
+
+//----------------------------------------------------------
+void BodyStream::close()
+{
+	Stream::close();
+	safe_release(stream.p_body_frame_reader);
+	for(int i = 0; i < bodies.size(); i++)
+	{
+		bodies[i].close();
+	}
+
+}
+
+//----------------------------------------------------------
+bool BodyStream::updateMode()
+{
+	ofLogWarning("ofxKinect2::BodyStream") << "Not supported yet.";
+	return false;
+}
+
+
+/**/
+
+
+/*
+//----------------------------------------------------------
 #pragma mark - ColorMappingStream
 //----------------------------------------------------------
 
@@ -1254,3 +1779,4 @@ bool ColorMappingStream::updateMode()
 	ofLogWarning("ofxKinect2::ColorMappingStream") << "Not supported yet.";
 	return false;
 }
+/**/

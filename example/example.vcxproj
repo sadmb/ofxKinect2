@@ -93,6 +93,8 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\ofApp.cpp" />
     <ClCompile Include="..\..\..\addons\ofxKinect2\src\ofxKinect2.cpp" />
+    <ClCompile Include="src\Particle.cpp" />
+    <ClCompile Include="src\VectorField.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ofApp.h" />
@@ -102,6 +104,8 @@
     <ClInclude Include="..\..\..\addons\ofxKinect2\src\utils\DepthRemapToRange.h" />
     <ClInclude Include="..\..\..\addons\ofxKinect2\src\utils\DoubleBuffer.h" />
     <ClInclude Include="..\..\..\addons\ofxKinect2\src\utils\MeshGenerator.h" />
+    <ClInclude Include="src\Particle.h" />
+    <ClInclude Include="src\VectorField.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\libs\openFrameworksCompiled\project\vs\openframeworksLib.vcxproj">
