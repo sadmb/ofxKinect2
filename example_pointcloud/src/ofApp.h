@@ -28,4 +28,10 @@ public:
 	ofxKinect2::ColorStream color_;
 	ofxKinect2::DepthStream depth_;
 	ofxKinect2::BodyStream body_stream_;
+    ofxKinect2::Mapper mapper_;
+
+	ofEasyCam cam_;
+	ofPixels mapped_pix_;
+	float scale_;
+	ofVec3f target_;
 };

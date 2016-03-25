@@ -24,7 +24,7 @@ using namespace ofxKinect2;
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-Device::Device() : recorder(NULL), enable_depth_color_sync(false), mapper(NULL)
+Device::Device() : recorder(NULL)
 {
 	device.kinect2 = NULL;
 }
@@ -46,10 +46,14 @@ bool Device::setup()
 
 	if (SUCCEEDED(hr))
 	{
-		device.kinect2->Open();
-		return true;
+		if(device.kinect2)
+		{
+			device.kinect2->Open();
+			return true;
+		}
 	}
 
+	ofLogWarning("ofxKinect2::Device") << " Kinect v2 not found.";
 	return false;
 }
 
@@ -57,7 +61,6 @@ bool Device::setup()
 bool Device::setup(string kinect2_file_path)
 {
 	ofxKinect2::init();
-
 	kinect2_file_path = ofToDataPath(kinect2_file_path);
 
 	ofLogWarning("ofxKinect2::Device") << " Open from path is not supported yet.";
@@ -91,11 +94,6 @@ void Device::exit()
 
 	streams.clear();
 
-	if (mapper)
-	{
-		safe_release(mapper);
-	}
-
 }
 
 //----------------------------------------------------------
@@ -112,45 +110,12 @@ void Device::update()
 	int val = 0;
 	ofNotifyEvent(onUpdateStream, val);
 
-	if(mapper)
-	{
-		safe_release(mapper);
-	}
 }
 
-//----------------------------------------------------------
-void Device::setDepthColorSyncEnabled(bool b)
-{
-	enable_depth_color_sync = b;
-	if (b)
-	{
-		HRESULT hr;
-		hr = device.kinect2->get_CoordinateMapper(&mapper);
-		if (SUCCEEDED(hr))
-		{
-		}
-		else
-		{
-			ofLogWarning("ofxKinect2::Device") << "Cannot start depth color sync";
-		}
-	}
-	else
-	{
-		if (mapper)
-		{
-			safe_release(mapper);
-		}
-	}
-}
 
 //----------------------------------------------------------
 #pragma mark - Stream
 //----------------------------------------------------------
-
-//----------------------------------------------------------
-Stream::Stream() {}
-//----------------------------------------------------------
-Stream::~Stream() {}
 
 //----------------------------------------------------------
 bool Stream::setup(Device& device, SensorType sensor_type)
@@ -241,7 +206,7 @@ void Stream::threadedFunction()
 }
 
 //----------------------------------------------------------
-bool Stream::readFrame(IMultiSourceFrame* p_multi_frame)
+bool Stream::readFrame()
 {
 	return false;
 }
@@ -366,7 +331,7 @@ void Stream::draw(float x, float y, float w, float h)
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool ColorStream::readFrame(IMultiSourceFrame* p_multi_frame)
+bool ColorStream::readFrame()
 {
 	bool readed = false;
 	if (!stream.p_color_frame_reader)
@@ -374,27 +339,12 @@ bool ColorStream::readFrame(IMultiSourceFrame* p_multi_frame)
 		ofLogWarning("ofxKinect2::ColorStream") << "Stream is not open.";
 		return readed;
 	}
-	Stream::readFrame(p_multi_frame);
+	Stream::readFrame();
 
 	IColorFrame* p_frame = NULL;
 	
 	HRESULT hr;
-	if (!p_multi_frame)
-	{
-		hr = stream.p_color_frame_reader->AcquireLatestFrame(&p_frame);
-	}
-	else
-	{
-		IColorFrameReference* p_frame_reference = NULL;
-		hr = p_multi_frame->get_ColorFrameReference(&p_frame_reference);
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_frame_reference->AcquireFrame(&p_frame);
-		}
-
-		safe_release(p_frame_reference);
-	}
+	hr = stream.p_color_frame_reader->AcquireLatestFrame(&p_frame);
 
 	if (SUCCEEDED(hr))
 	{
@@ -584,6 +534,42 @@ bool ColorStream::updateMode()
 }
 
 //----------------------------------------------------------
+ofColor ColorStream::getColorAt(int x, int y)
+{
+	if (!pix.getFrontBuffer().isAllocated() || x < 0 || y < 0 || x >= pix.getFrontBuffer().getWidth() || y >= pix.getFrontBuffer().getHeight())
+	{
+		return ofColor(0, 0, 0, 0);
+	}
+	int index = (x + y * pix.getFrontBuffer().getWidth()) * 4;
+	ofColor color = ofColor(pix.getFrontBuffer()[index], pix.getFrontBuffer()[index + 1], pix.getFrontBuffer()[index + 2], pix.getFrontBuffer()[index + 3]);
+	return color;
+}
+
+//----------------------------------------------------------
+ofColor ColorStream::getColorAt(ofVec2f color_point)
+{
+    return getColorAt(color_point.x, color_point.y);
+}
+
+//----------------------------------------------------------
+ofFloatColor ColorStream::getFloatColorAt(int x, int y)
+{
+	if (!pix.getFrontBuffer().isAllocated() || x < 0 || y < 0 || x >= pix.getFrontBuffer().getWidth() || y >= pix.getFrontBuffer().getHeight())
+	{
+		return ofFloatColor(0, 0, 0, 0);
+	}
+	int index = (x + y * pix.getFrontBuffer().getWidth()) * 4;
+	ofFloatColor color = ofColor(pix.getFrontBuffer()[index] / 255.f, pix.getFrontBuffer()[index + 1] / 255.f, pix.getFrontBuffer()[index + 2] / 255.f, pix.getFrontBuffer()[index + 3] / 255.f);
+	return color;
+}
+
+//----------------------------------------------------------
+ofFloatColor ColorStream::getFloatColorAt(ofVec2f color_point)
+{
+	return getFloatColorAt(color_point.x, color_point.y);
+}
+
+//----------------------------------------------------------
 int ColorStream::getExposureTime()
 {
 	TIMESPAN exposure_time;
@@ -620,7 +606,7 @@ float ColorStream::getGamma()
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool DepthStream::readFrame(IMultiSourceFrame* p_multi_frame)
+bool DepthStream::readFrame()
 {
 	bool readed = false;
 	if(!stream.p_depth_frame_reader)
@@ -628,27 +614,12 @@ bool DepthStream::readFrame(IMultiSourceFrame* p_multi_frame)
 		ofLogWarning("ofxKinect2::DepthStream") << "Stream is not open.";
 		return readed;
 	}
-	Stream::readFrame(p_multi_frame);
+	Stream::readFrame();
 
 	IDepthFrame* p_frame = NULL;
 
 	HRESULT hr;
-	if (!p_multi_frame)
-	{
-		hr = stream.p_depth_frame_reader->AcquireLatestFrame(&p_frame);
-	}
-	else
-	{
-		IDepthFrameReference* p_frame_reference = NULL;
-		hr = p_multi_frame->get_DepthFrameReference(&p_frame_reference);
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_frame_reference->AcquireFrame(&p_frame);
-		}
-
-		safe_release(p_frame_reference);
-	}
+	hr = stream.p_depth_frame_reader->AcquireLatestFrame(&p_frame);
 
 	if (SUCCEEDED(hr))
 	{
@@ -773,6 +744,27 @@ ofShortPixels DepthStream::getPixelsRef(int _near, int _far, bool invert)
 }
 
 //----------------------------------------------------------
+unsigned short DepthStream::getDepthAt(int x, int y)
+{
+    int index = x + y * pix.getFrontBuffer().getWidth();
+	if (pix.getFrontBuffer().isAllocated())
+	{
+		return pix.getFrontBuffer()[index];
+	}
+	else
+	{
+		ofLogNotice("ofKinect2::DepthStream") << "Cannot get depth.";
+		return 0;
+	}
+}
+
+//----------------------------------------------------------
+unsigned short DepthStream::getDepthAt(ofVec2f depth_point)
+{
+	return getDepthAt(depth_point.x, depth_point.y);
+}
+
+//----------------------------------------------------------
 bool DepthStream::open()
 {
 	if (!device->isOpen())
@@ -822,7 +814,7 @@ bool DepthStream::updateMode()
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool IrStream::readFrame(IMultiSourceFrame* p_multi_frame)
+bool IrStream::readFrame()
 {
 	bool readed = false;
 	if(!stream.p_infrared_frame_reader)
@@ -835,22 +827,7 @@ bool IrStream::readFrame(IMultiSourceFrame* p_multi_frame)
 	IInfraredFrame* p_frame = NULL;
 
 	HRESULT hr;
-	if (!p_multi_frame)
-	{
-		hr = stream.p_infrared_frame_reader->AcquireLatestFrame(&p_frame);
-	}
-	else
-	{
-		IInfraredFrameReference* p_frame_reference = NULL;
-		hr = p_multi_frame->get_InfraredFrameReference(&p_frame_reference);
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_frame_reference->AcquireFrame(&p_frame);
-		}
-
-		safe_release(p_frame_reference);
-	}
+	hr = stream.p_infrared_frame_reader->AcquireLatestFrame(&p_frame);
 
 	if (SUCCEEDED(hr))
 	{
@@ -982,6 +959,181 @@ bool IrStream::updateMode()
 }
 
 //----------------------------------------------------------
+#pragma mark - BodyIndexStream
+//----------------------------------------------------------
+
+//----------------------------------------------------------
+bool BodyIndexStream::readFrame()
+{
+	bool readed = false;
+	if(!stream.p_body_index_frame_reader)
+	{
+		ofLogWarning("ofxKinect2::BodyIndexStream") << "Stream is not open.";
+		return readed;
+	}
+	Stream::readFrame();
+
+	IBodyIndexFrame* p_frame = NULL;
+
+	HRESULT hr;
+	hr = stream.p_body_index_frame_reader->AcquireLatestFrame(&p_frame);
+
+	if (SUCCEEDED(hr))
+	{
+		IFrameDescription* p_frame_description = NULL;
+
+		hr = p_frame->get_RelativeTime((INT64*)&frame.timestamp);
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame->get_FrameDescription(&p_frame_description);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_description->get_Width(&frame.width);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_description->get_Height(&frame.height);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_description->get_HorizontalFieldOfView(&frame.horizontal_field_of_view);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_description->get_VerticalFieldOfView(&frame.vertical_field_of_view);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_description->get_DiagonalFieldOfView(&frame.diagonal_field_of_view);
+		}
+
+		unsigned int bpp = 0;
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_description->get_BytesPerPixel(&bpp);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame->AccessUnderlyingBuffer((UINT*)&frame.data_size, reinterpret_cast<BYTE**>(&frame.data));
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			readed = true;
+			setPixels(frame);
+		}
+		safe_release(p_frame_description);
+	}
+
+	safe_release(p_frame);
+
+	return readed;
+}
+
+//----------------------------------------------------------
+void BodyIndexStream::setPixels(Frame frame)
+{
+	Stream::setPixels(frame);
+
+	int w = frame.width;
+	int h = frame.height;
+	unsigned char *pixels = new unsigned char[w * h * 4];
+	for(int i  = 0; i < w * h; i++)
+	{
+		int index = i * 4;
+		unsigned char p = ((unsigned char*)frame.data)[i];
+		ofColor color = colors[p];
+		if(p != 255)
+		{
+			pixels[index + 0] = color.r;
+			pixels[index + 1] = color.g;
+			pixels[index + 2] = color.b;
+			pixels[index + 3] = 255;
+		}
+		else
+		{
+			pixels[index + 0] = 0;
+			pixels[index + 1] = 0;
+			pixels[index + 2] = 0;
+			pixels[index + 3] = 0;
+		}
+	}
+	
+	pix.allocate(w, h, 1);
+	pix.getBackBuffer().setFromPixels(pixels, w, h, OF_IMAGE_COLOR_ALPHA);
+	pix.swap();
+}
+
+//----------------------------------------------------------
+void BodyIndexStream::update()
+{
+	if(!tex.isAllocated()
+		|| tex.getWidth() != getWidth()
+		|| tex.getHeight() != getHeight())
+	{
+		tex.allocate(getWidth(), getHeight(), GL_RGB);
+	}
+
+	if (lock())
+	{
+		tex.loadData(pix.getFrontBuffer());
+		Stream::update();
+		unlock();
+	}
+}
+
+//----------------------------------------------------------
+bool BodyIndexStream::open()
+{
+	if (!device->isOpen())
+	{
+		ofLogWarning("ofxKinect2::BodyIndexStream") << "No ready Kinect2 found.";
+		return false;
+	}
+
+	IBodyIndexFrameSource* p_source = NULL;
+	HRESULT hr;
+
+	hr = device->get().kinect2->get_BodyIndexFrameSource(&p_source);
+
+	if (SUCCEEDED(hr))
+	{
+		hr = p_source->OpenReader(&stream.p_body_index_frame_reader);
+	}
+
+	safe_release(p_source);
+	if (FAILED(hr))
+	{
+		ofLogWarning("ofxKinect2::BodyIndexStream") << "Can't open stream.";
+		return false;
+	}
+
+	return Stream::open();
+}
+
+//----------------------------------------------------------
+void BodyIndexStream::close()
+{
+	Stream::close();
+	safe_release(stream.p_infrared_frame_reader);
+}
+
+//----------------------------------------------------------
+bool BodyIndexStream::updateMode()
+{
+	ofLogWarning("ofxKinect2::BodyIndexStream") << "Not supported yet.";
+	return false;
+}
+
+//----------------------------------------------------------
 #pragma mark - Body
 //----------------------------------------------------------
 
@@ -1029,7 +1181,18 @@ ofPoint Body::bodyPointToScreen(const CameraSpacePoint& bodyPoint, int x, int y,
 {
 	// Calculate the body's position on the screen
     DepthSpacePoint depthPoint = {0};
-	device->getMapper()->MapCameraPointToDepthSpace(bodyPoint, &depthPoint);
+	HRESULT hr;
+	ICoordinateMapper* mapper;
+	hr = device->get().kinect2->get_CoordinateMapper(&mapper);
+	if (SUCCEEDED(hr))
+	{
+		mapper->MapCameraPointToDepthSpace(bodyPoint, &depthPoint);
+	}
+	else
+	{
+		ofLogError("ofxKinect2::Body") << "can't get Coordinate Mapper.";
+		return ofPoint(0, 0);
+	}
 
 	// TODO: width/ height
     float screenPointX = static_cast<float>(depthPoint.X * w) / 512 + x;
@@ -1196,7 +1359,7 @@ void Body::drawLean(int x, int y, int w, int h)
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool BodyStream::readFrame(IMultiSourceFrame* p_multi_frame)
+bool BodyStream::readFrame()
 {
 	bool readed = false;
 	if(!stream.p_body_frame_reader)
@@ -1208,22 +1371,7 @@ bool BodyStream::readFrame(IMultiSourceFrame* p_multi_frame)
 	IBodyFrame* p_frame = NULL;
 
 	HRESULT hr;
-	if (!p_multi_frame)
-	{
-		hr = stream.p_body_frame_reader->AcquireLatestFrame(&p_frame);
-	}
-	else
-	{
-		IBodyFrameReference* p_frame_reference = NULL;
-		hr = p_multi_frame->get_BodyFrameReference(&p_frame_reference);
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_frame_reference->AcquireFrame(&p_frame);
-		}
-
-		safe_release(p_frame_reference);
-	}
+	hr = stream.p_body_frame_reader->AcquireLatestFrame(&p_frame);
 
 	if (SUCCEEDED(hr))
 	{
@@ -1468,265 +1616,141 @@ bool BodyStream::updateMode()
 }
 
 
-/**/
-
-
-/*
 //----------------------------------------------------------
-#pragma mark - ColorMappingStream
+#pragma mark - MultiStream
 //----------------------------------------------------------
 
 //----------------------------------------------------------
-bool ColorMappingStream::readFrame(IMultiSourceFrame* p_multi_frame)
+bool MultiStream::readFrame()
 {
 	bool readed = false;
-	if (!stream.p_multi_source_frame_reader)
+	if (!stream.p_color_frame_reader)
 	{
-		ofLogWarning("ofxKinect2::ColorMappingStream") << "Stream is not open.";
+		ofLogWarning("ofxKinect2::ColorStream") << "Stream is not open.";
 		return readed;
 	}
-	if (!device->isDepthColorSyncEnabled())
-	{
-		ofLogWarning("ofxKinect2::ColorMappingStream") << "You should enable color depth sync.";
-		return readed;
-	}
+	Stream::readFrame();
 
-	Stream::readFrame(p_multi_frame);
-
-	IMultiSourceFrame* p_frame = NULL;
-	HRESULT hr = stream.p_multi_source_frame_reader->AcquireLatestFrame(&p_frame);
-
-    if (SUCCEEDED(hr))
-    {
-        IDepthFrameReference* p_depth_frame_reference = NULL;
-
-        hr = p_frame->get_DepthFrameReference(&p_depth_frame_reference);
-        if (SUCCEEDED(hr))
-        {
-            hr = p_depth_frame_reference->AcquireFrame(&p_depth_frame);
-        }
-
-        safe_release(p_depth_frame_reference);
-    }
-
-    if (SUCCEEDED(hr))
-    {
-        IColorFrameReference* p_color_frame_reference = NULL;
-
-        hr = p_frame->get_ColorFrameReference(&p_color_frame_reference);
-        if (SUCCEEDED(hr))
-        {
-            hr = p_color_frame_reference->AcquireFrame(&p_color_frame);
-        }
-
-        safe_release(p_color_frame_reference);
-    }
-
-    if (SUCCEEDED(hr))
-    {
-        IBodyIndexFrameReference* p_body_index_frame_reference = NULL;
-
-        hr = p_frame->get_BodyIndexFrameReference(&p_body_index_frame_reference);
-        if (SUCCEEDED(hr))
-        {
-            hr = p_body_index_frame_reference->AcquireFrame(&p_body_index_frame);
-        }
-
-        safe_release(p_body_index_frame_reference);
-    }
-
+	IColorFrame* p_frame = NULL;
+	
+	HRESULT hr;
+	hr = stream.p_color_frame_reader->AcquireLatestFrame(&p_frame);
 
 	if (SUCCEEDED(hr))
 	{
-		IFrameDescription* p_depth_frame_description = NULL;
-		IFrameDescription* p_color_frame_description = NULL;
-		IFrameDescription* p_body_index_frame_description = NULL;
-        ColorImageFormat image_format = ColorImageFormat_None;
+		IFrameDescription* p_frame_description = NULL;
+		ColorImageFormat image_format = ColorImageFormat_None;
 
-		hr = p_depth_frame->get_RelativeTime((INT64*)&frame.timestamp);
+		hr = p_frame->get_RelativeTime((INT64*)&frame.timestamp);
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_depth_frame->get_FrameDescription(&p_depth_frame_description);
+			hr = p_frame->get_FrameDescription(&p_frame_description);
 		}
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_depth_frame_description->get_Width(&frame.width);
+			hr = p_frame_description->get_Width(&frame.width);
 		}
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_depth_frame_description->get_Height(&frame.height);
+			hr = p_frame_description->get_Height(&frame.height);
 		}
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_depth_frame_description->get_HorizontalFieldOfView(&frame.horizontal_field_of_view);
+			hr = p_frame_description->get_HorizontalFieldOfView(&frame.horizontal_field_of_view);
+		}
+		if (SUCCEEDED(hr))
+		{
+			hr = p_frame_description->get_VerticalFieldOfView(&frame.vertical_field_of_view);
 		}
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_depth_frame_description->get_VerticalFieldOfView(&frame.vertical_field_of_view);
+			hr = p_frame_description->get_DiagonalFieldOfView(&frame.diagonal_field_of_view);
 		}
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_depth_frame_description->get_DiagonalFieldOfView(&frame.diagonal_field_of_view);
+			hr = p_frame->get_RawColorImageFormat(&image_format);
 		}
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_depth_frame->AccessUnderlyingBuffer((UINT*)&frame.data_size, reinterpret_cast<UINT16**>(&frame.data));
-		}
-
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_color_frame->get_FrameDescription(&p_color_frame_description);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_color_frame_description->get_Width(&color_frame.width);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_color_frame_description->get_Height(&color_frame.height);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_color_frame_description->get_HorizontalFieldOfView(&color_frame.horizontal_field_of_view);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_color_frame_description->get_VerticalFieldOfView(&color_frame.vertical_field_of_view);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_color_frame_description->get_DiagonalFieldOfView(&color_frame.diagonal_field_of_view);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_color_frame->get_RawColorImageFormat(&image_format);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			if (c_buffer == NULL)
+			if (buffer == NULL)
 			{
-				c_buffer = new unsigned char[color_frame.width * color_frame.height];
+				buffer = new unsigned char[frame.width * frame.height * 4];
 			}
-			if (image_format == ColorImageFormat_Bgra)
+			if (image_format == ColorImageFormat_Rgba)
 			{
-				hr = p_color_frame->AccessRawUnderlyingBuffer((UINT*)&color_frame.data_size, reinterpret_cast<BYTE**>(&color_frame.data));
-			}
-			else if(c_buffer)
-			{
-				color_frame.data = c_buffer;
-				color_frame.data_size = color_frame.width * color_frame.height * sizeof(BYTE);
-				hr = p_color_frame->CopyConvertedFrameDataToArray((UINT)frame.data_size, reinterpret_cast<BYTE*>(color_frame.data),  ColorImageFormat_Bgra);
+				hr = p_frame->AccessRawUnderlyingBuffer((UINT*)&frame.data_size, reinterpret_cast<BYTE**>(&frame.data));
 			}
 			else
 			{
-				hr = E_FAIL;
-				return false;
+				frame.data = buffer;
+				frame.data_size = frame.width * frame.height * 4 * sizeof(unsigned char);
+				hr = p_frame->CopyConvertedFrameDataToArray((UINT)frame.data_size, reinterpret_cast<BYTE*>(frame.data),  ColorImageFormat_Rgba);
 			}
 		}
 
-        // get body index frame data
-
-        if (SUCCEEDED(hr))
-        {
-            hr = p_body_index_frame->get_FrameDescription(&p_body_index_frame_description);
-        }
-
-        if (SUCCEEDED(hr))
-        {
-			hr = p_body_index_frame_description->get_Width(&body_index_frame.width);
-        }
-
-        if (SUCCEEDED(hr))
-        {
-            hr = p_body_index_frame_description->get_Height(&body_index_frame.height);
-        }
-
-        if (SUCCEEDED(hr))
-        {
-			hr = p_body_index_frame->AccessUnderlyingBuffer((UINT*)&body_index_frame.data_size, reinterpret_cast<BYTE**>(&body_index_frame.data));            
-        }
-
-		safe_release(p_depth_frame_description);
-		safe_release(p_color_frame_description);
-		safe_release(p_body_index_frame_description);
+		if (SUCCEEDED(hr))
+		{
+			readed = true;
+			setPixels(frame);
+		}
+		safe_release(p_frame_description);
 	}
 
 	safe_release(p_frame);
-	safe_release(p_depth_frame);
-	safe_release(p_color_frame);
-	safe_release(p_body_index_frame);
 
-	return true;
+	return readed;
 }
 
 //----------------------------------------------------------
-void ColorMappingStream::setPixels(Frame frame)
+void MultiStream::setPixels(Frame frame)
 {
 	Stream::setPixels(frame);
-	
-	const unsigned short *depth_pixels = (const unsigned short*)frame.data;
-	int depth_w = frame.width;
-	int depth_h = frame.height;
-	int depth_num_pixels = depth_w * depth_h;
-	
-	const unsigned char *color_pixels = (const unsigned char*)color_frame.data;
-	m = color_frame.mode;
-	int color_w = m.resolution_x;
-	int color_h = m.resolution_y;
-	int color_num_pixels = color_w * color_h;
-	
-	pix.allocate(depth_w, depth_h, 3);
 
-	const unsigned char*body_index_pixels = (const unsigned char*)body_index_frame.data;
-	m = body_index_frame.mode;
-	int body_index_w = m.resolution_x;
-	int body_index_h = m.resolution_y;
-	int body_index_num_pixels = body_index_w * body_index_h;
+	int w = frame.width;
+	int h = frame.height;
+	int num_pixels = w * h;
 
-	HRESULT hr;
-	ICoordinateMapper* mapper = device->getMapper();
-	device->getMapper()->MapDepthFrameToColorSpace(depth_w * depth_h, (UINT16*)depth_pixels, depth_w * depth_h, color_map);
-
+	const unsigned char * src = (const unsigned char*)frame.data;
 	unsigned char *dst = pix.getBackBuffer().getPixels();
-	for (int i = 0; i < depth_num_pixels; i++)
-	{
-		ColorSpacePoint cp = color_map[i];
-		int cx = (int)(floor(cp.X + 0.5));
-		int cy = (int)(floor(cp.Y + 0.5));
-		if ((cx >= 0) && (cx < color_w) && (cy >= 0) && (cy < color_h))
-		{
-			int color_index = cy * color_w + cx;
-			dst[i + 0] = color_pixels[color_index + 0];
-			dst[i + 0] = color_pixels[color_index + 1];
-			dst[i + 0] = color_pixels[color_index + 2];
-		}
-		else
-		{
-			dst[i + 0] = 0;
-			dst[i + 1] = 0;
-			dst[i + 2] = 0;
-		}
-	}
+
+	pix.getBackBuffer().setFromPixels(src, w, h, OF_IMAGE_COLOR_ALPHA);
 	pix.swap();
 }
 
 //----------------------------------------------------------
-void ColorMappingStream::update()
+bool MultiStream::setWidth(int width)
+{
+	bool ret = Stream::setWidth(width);
+	pix.deallocate();
+	pix.allocate(frame.width, frame.height, 4);
+	return ret;
+}
+
+//----------------------------------------------------------
+bool MultiStream::setHeight(int height)
+{
+	bool ret = Stream::setHeight(height);
+	pix.allocate(frame.width, frame.height, 4);
+	return ret;
+}
+
+//----------------------------------------------------------
+bool MultiStream::setSize(int width, int height)
+{
+	bool ret = Stream::setSize(width, height);
+	pix.allocate(frame.width, frame.height, 4);
+	return ret;
+}
+
+//----------------------------------------------------------
+void MultiStream::update()
 {
 	if(!tex.isAllocated()
 		|| tex.getWidth() != getWidth()
@@ -1744,22 +1768,41 @@ void ColorMappingStream::update()
 }
 
 //----------------------------------------------------------
-bool ColorMappingStream::open()
+bool MultiStream::open()
 {
 	if (!device->isOpen())
 	{
-		ofLogWarning("ofxKinect2::ColorMappingStream") << "No ready Kinect2 found.";
+		ofLogWarning("ofxKinect2::ColorStream") << "No ready Kinect2 found.";
 		return false;
 	}
+	IColorFrameSource* p_source = NULL;
 	HRESULT hr;
 
-	hr = device->get().kinect2->OpenMultiSourceFrameReader(
-                FrameSourceTypes::FrameSourceTypes_Depth | FrameSourceTypes::FrameSourceTypes_Color | FrameSourceTypes::FrameSourceTypes_BodyIndex,
-				&stream.p_multi_source_frame_reader);
+	hr = device->get().kinect2->get_ColorFrameSource(&p_source);
 
+	if (SUCCEEDED(hr))
+	{
+		hr = p_source->OpenReader(&stream.p_color_frame_reader);
+	}
+	IFrameDescription* p_frame_description = NULL;
+	p_source->get_FrameDescription(&p_frame_description);
+	if (SUCCEEDED(hr))
+	{
+		int res_x, res_y = 0;
+		hr = p_frame_description->get_Width(&res_x);
+		hr = p_frame_description->get_Width(&res_y);
+		frame.mode.resolution_x = res_x;
+		frame.mode.resolution_y = res_y;
+		frame.width = res_x;
+		frame.height = res_y;
+		pix.allocate(res_x, res_y, 4);
+
+	}
+	safe_release(p_frame_description);
+	safe_release(p_source);
 	if (FAILED(hr))
 	{
-		ofLogWarning("ofxKinect2::ColorMappingStream") << "Can't open stream.";
+		ofLogWarning("ofxKinect2::ColorStream") << "Can't open stream.";
 		return false;
 	}
 
@@ -1767,16 +1810,584 @@ bool ColorMappingStream::open()
 }
 
 //----------------------------------------------------------
-void ColorMappingStream::close()
+void MultiStream::close()
 {
 	Stream::close();
-	safe_release(stream.p_multi_source_frame_reader);
+	safe_release(stream.p_color_frame_reader);
 }
 
 //----------------------------------------------------------
-bool ColorMappingStream::updateMode()
+bool MultiStream::updateMode()
 {
-	ofLogWarning("ofxKinect2::ColorMappingStream") << "Not supported yet.";
+	ofLogWarning("ofxKinect2::ColorStream") << "Not supported yet.";
 	return false;
+}
+
+//----------------------------------------------------------
+int MultiStream::getExposureTime()
+{
+	TIMESPAN exposure_time;
+	camera_settings.p_color_camera_settings->get_ExposureTime(&exposure_time);
+	return (int)exposure_time;
+}
+
+//----------------------------------------------------------
+int MultiStream::getFrameInterval()
+{
+	TIMESPAN frame_interval;
+	camera_settings.p_color_camera_settings->get_FrameInterval(&frame_interval);
+	return (int)frame_interval;
+}
+
+//----------------------------------------------------------
+float MultiStream::getGain()
+{
+	float gain;
+	camera_settings.p_color_camera_settings->get_Gain(&gain);
+	return gain;
+}
+
+//----------------------------------------------------------
+float MultiStream::getGamma()
+{
+	float gamma;
+	camera_settings.p_color_camera_settings->get_Gamma(&gamma);
+	return gamma;
+}
+
+
+//----------------------------------------------------------
+#pragma mark - Mapper
+//----------------------------------------------------------
+
+//----------------------------------------------------------
+bool Mapper::setup(Device& device)
+{
+	this->device = &device;
+	HRESULT hr;
+	hr = device.get().kinect2->get_CoordinateMapper(&p_mapper);
+	if (SUCCEEDED(hr))
+	{
+		return true;
+	}
+	else
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "Cannot get Coordinate Mapper.";
+		return false;
+	}
+}
+
+//----------------------------------------------------------
+ofVec3f Mapper::mapDepthToCameraSpace(int x, int y)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return ofVec3f();
+	}
+	DepthSpacePoint depth_space_point;
+	depth_space_point.X = x;
+	depth_space_point.Y = y;
+	int index = x + y * depth_pixels.getWidth();
+	UINT16 depth = depth_pixels[index];
+	if (depth_to_camera_points.size() == 0)
+	{
+		depth_to_camera_points.resize(depth_pixels.size());
+	}
+	p_mapper->MapDepthPointToCameraSpace(depth_space_point, depth, reinterpret_cast<CameraSpacePoint*>(depth_to_camera_points.data()));
+	return depth_to_camera_points[0];
+}
+
+//----------------------------------------------------------
+ofVec3f Mapper::mapDepthToCameraSpace(ofVec2f depth_point)
+{
+	return mapDepthToCameraSpace(depth_point.x, depth_point.y);
+}
+
+//----------------------------------------------------------
+vector<ofVec3f> Mapper::mapDepthToCameraSpace()
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec3f>();
+	}
+	UINT depth_size = depth_pixels.size();
+	UINT16* depth_pix = depth_pixels.getPixels();
+	if (depth_to_camera_points.size() != depth_size)
+	{
+		depth_to_camera_points.resize(depth_size);
+	}
+	p_mapper->MapDepthFrameToCameraSpace(depth_size, depth_pix, depth_size, reinterpret_cast<CameraSpacePoint*>(depth_to_camera_points.data()));
+	return depth_to_camera_points;
+}
+
+//----------------------------------------------------------
+vector<ofVec3f> Mapper::mapDepthToCameraSpace(vector<ofVec2f> depth_points)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec3f>();
+	}
+	UINT depth_size = depth_points.size();
+	if (!depth_space_points)
+	{
+		depth_space_points = new DepthSpacePoint[depth_pixels.size()];
+	}
+	if (!depth_values)
+	{
+		depth_values = new UINT16[depth_pixels.size()];
+	}
+	for (int i = 0; i < depth_size; i++)
+	{
+		depth_space_points[i].X = depth_points[i].x;
+		depth_space_points[i].Y = depth_points[i].y;
+		int index = depth_points[i].x + depth_points[i].y * depth_pixels.getWidth();
+		depth_values[i] = depth_pixels[index];
+	}
+
+	if (depth_to_camera_points.size() != depth_size)
+	{
+		depth_to_camera_points.resize(depth_size);
+	}
+	p_mapper->MapDepthPointsToCameraSpace(depth_size, depth_space_points, depth_size, depth_values, depth_size, reinterpret_cast<CameraSpacePoint*>(depth_to_camera_points.data()));
+	return depth_to_camera_points;
+}
+
+//----------------------------------------------------------
+vector<ofVec3f> Mapper::mapDepthToCameraSpace(ofRectangle depth_area)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec3f>();
+	}
+	UINT depth_size = depth_area.getWidth() * depth_area.getHeight();
+	if (!depth_space_points)
+	{
+		depth_space_points = new DepthSpacePoint[depth_pixels.size()];
+	}
+	if (!depth_values)
+	{
+		depth_values = new UINT16[depth_pixels.size()];
+	}
+	for (int i = 0; i < depth_size; i++)
+	{
+		depth_space_points[i].X = i % (int)depth_area.getHeight();
+		depth_space_points[i].Y = (int)floor(i / (int)depth_area.getWidth());
+		int index = depth_space_points[i].X + depth_space_points[i].Y * depth_pixels.getWidth();
+		depth_values[i] = depth_pixels[index];
+	}
+
+	if (depth_to_camera_points.size() != depth_size)
+	{
+		depth_to_camera_points.resize(depth_size);
+	}
+	p_mapper->MapDepthPointsToCameraSpace(depth_size, depth_space_points, depth_size, depth_values, depth_size, reinterpret_cast<CameraSpacePoint*>(depth_to_camera_points.data()));
+	return depth_to_camera_points;
+}
+
+//----------------------------------------------------------
+ofVec2f Mapper::mapDepthToColorSpace(int x, int y)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return ofVec2f();
+	}
+	DepthSpacePoint depth_space_point;
+	depth_space_point.X = x;
+	depth_space_point.Y = y;
+	int index = x + y * depth_pixels.getWidth();
+	UINT16 depth = depth_pixels[index];
+	if (depth_to_color_points.size() == 0)
+	{
+		depth_to_color_points.resize(depth_pixels.size());
+	}
+	p_mapper->MapDepthPointToColorSpace(depth_space_point, depth, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	return depth_to_color_points[0];
+}
+
+//----------------------------------------------------------
+ofVec2f Mapper::mapDepthToColorSpace(ofVec2f depth_point)
+{
+	return mapDepthToColorSpace(depth_point.x, depth_point.y);
+}
+
+//----------------------------------------------------------
+vector<ofVec2f> Mapper::mapDepthToColorSpace()
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec2f>();
+	}
+	UINT depth_size = depth_pixels.size();
+	UINT16* depth_pix = depth_pixels.getPixels();
+	if (depth_to_color_points.size() != depth_size)
+	{
+		depth_to_color_points.resize(depth_size);
+	}
+	p_mapper->MapDepthFrameToColorSpace(depth_size, depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	return depth_to_color_points;
+}
+
+//----------------------------------------------------------
+vector<ofVec2f> Mapper::mapDepthToColorSpace(vector<ofVec2f> depth_points)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec2f>();
+	}
+	UINT depth_size = depth_points.size();
+	if (!depth_space_points)
+	{
+		depth_space_points = new DepthSpacePoint[depth_pixels.size()];
+	}
+	if (!depth_values)
+	{
+		depth_values = new UINT16[depth_pixels.size()];
+	}
+	for (int i = 0; i < depth_size; i++)
+	{
+		depth_space_points[i].X = depth_points[i].x;
+		depth_space_points[i].Y = depth_points[i].y;
+		depth_values[i] = depth_pixels[(int)depth_space_points[i].X + (int)depth_space_points[i].Y * (int)depth_pixels.getWidth()];
+	}
+
+	if (depth_to_color_points.size() != depth_size)
+	{
+		depth_to_color_points.resize(depth_size);
+	}
+	p_mapper->MapDepthPointsToColorSpace(depth_size, depth_space_points, depth_size, depth_values, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	return depth_to_color_points;
+}
+//----------------------------------------------------------
+vector<ofVec2f> Mapper::mapDepthToColorSpace(ofRectangle depth_area)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec2f>();
+	}
+	UINT depth_size = depth_area.getWidth() * depth_area.getHeight();
+	if (!depth_space_points)
+	{
+		depth_space_points = new DepthSpacePoint[depth_pixels.size()];
+	}
+	if (!depth_values)
+	{
+		depth_values = new UINT16[depth_pixels.size()];
+	}
+	for (int i = 0; i < depth_size; i++)
+	{
+		depth_space_points[i].X = i % (int)depth_area.getHeight();
+		depth_space_points[i].Y = (int)floor(i / (int)depth_area.getWidth());
+		depth_values[i] = depth_pixels[(int)depth_space_points[i].X + (int)depth_space_points[i].Y * (int)depth_pixels.getWidth()];
+	}
+
+	if (depth_to_color_points.size() != depth_size)
+	{
+		depth_to_color_points.resize(depth_size);
+	}
+	p_mapper->MapDepthPointsToColorSpace(depth_size, depth_space_points, depth_size, depth_values, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	return depth_to_color_points;
+}
+
+//----------------------------------------------------------
+vector<ofVec3f> Mapper::mapColorToCameraSpace()
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec3f>();
+	}
+	if (!color_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "color pixel is not allocated.";
+		return vector<ofVec3f>();
+	}
+	int depth_size = depth_pixels.size();
+	int color_size = color_pixels.size();
+	if (color_to_camera_points.size() != color_size)
+	{
+		color_to_camera_points.resize(color_size);
+	}
+	p_mapper->MapColorFrameToCameraSpace(depth_size, (UINT16*)depth_pixels.getPixels(), color_size, reinterpret_cast<CameraSpacePoint*>(color_to_camera_points.data()));
+	return color_to_camera_points;
+}
+
+//----------------------------------------------------------
+vector<ofVec2f> Mapper::mapColorToDepthSpace()
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec2f>();
+	}
+	UINT depth_size = depth_pixels.size();
+	UINT color_size = color_pixels.size();
+	if (color_to_depth_points.size() != color_size)
+	{
+		color_to_depth_points.resize(color_size);
+	}
+	p_mapper->MapColorFrameToDepthSpace(depth_size, (UINT16*)depth_pixels.getPixels(), color_size, reinterpret_cast<DepthSpacePoint*>(color_to_depth_points.data()));
+	return color_to_depth_points;
+}
+
+//----------------------------------------------------------
+ofVec2f Mapper::mapCameraToDepthSpace(float x, float y, float z)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return ofVec2f();
+	}
+	CameraSpacePoint camera_space_point;
+	camera_space_point.X = x;
+	camera_space_point.Y = y;
+	camera_space_point.Z = z;
+	if (camera_to_depth_points.size() == 0)
+	{
+		camera_to_depth_points.resize(depth_pixels.size());
+	}
+	p_mapper->MapCameraPointToDepthSpace(camera_space_point, reinterpret_cast<DepthSpacePoint*>(camera_to_depth_points.data()));
+	return camera_to_depth_points[0];
+}
+
+//----------------------------------------------------------
+ofVec2f Mapper::mapCameraToDepthSpace(ofVec3f camera_point)
+{
+	return mapCameraToDepthSpace(camera_point.x, camera_point.y, camera_point.z);
+}
+
+//----------------------------------------------------------
+vector<ofVec2f> Mapper::mapCameraToDepthSpace(vector<ofVec3f> camera_points)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec2f>();
+	}
+	UINT camera_size = camera_points.size();
+	if (!camera_space_points)
+	{
+		camera_space_points = new CameraSpacePoint[depth_pixels.size()];
+	}
+	for (int i = 0; i < camera_size; i++)
+	{
+		camera_space_points[i].X = camera_points[i].x;
+		camera_space_points[i].Y = camera_points[i].y;
+		camera_space_points[i].Z = camera_points[i].z;
+	}
+
+	if (camera_to_depth_points.size() != camera_size)
+	{
+		camera_to_depth_points.resize(camera_size);
+	}
+	p_mapper->MapCameraPointsToDepthSpace(camera_size, camera_space_points, camera_size, reinterpret_cast<DepthSpacePoint*>(camera_to_depth_points.data()));
+	return camera_to_depth_points;
+}
+
+//----------------------------------------------------------
+ofVec2f Mapper::mapCameraToColorSpace(float x, float y, float z)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return ofVec2f();
+	}
+	CameraSpacePoint camera_space_point;
+	camera_space_point.X = x;
+	camera_space_point.Y = y;
+	camera_space_point.Z = z;
+	if (depth_to_color_points.size() == 0)
+	{
+		depth_to_color_points.resize(depth_pixels.size());
+	}
+	p_mapper->MapCameraPointToColorSpace(camera_space_point, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	return depth_to_color_points[0];
+}
+
+//----------------------------------------------------------
+ofVec2f Mapper::mapCameraToColorSpace(ofVec3f camera_point)
+{
+	return mapCameraToColorSpace(camera_point.x, camera_point.y, camera_point.z);
+}
+
+//----------------------------------------------------------
+vector<ofVec2f> Mapper::mapCameraToColorSpace(vector<ofVec3f> camera_points)
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofVec2f>();
+	}
+	UINT camera_size = camera_points.size();
+	if (!camera_space_points)
+	{
+		camera_space_points = new CameraSpacePoint[depth_pixels.size()];
+	}
+	for (int i = 0; i < camera_size; i++)
+	{
+		camera_space_points[i].X = camera_points[i].x;
+		camera_space_points[i].Y = camera_points[i].y;
+		camera_space_points[i].Z = camera_points[i].z;
+	}
+
+	if (depth_to_color_points.size() != camera_size)
+	{
+		depth_to_color_points.resize(camera_size);
+	}
+	p_mapper->MapCameraPointsToColorSpace(camera_size, camera_space_points, camera_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	return depth_to_color_points;
+}
+
+
+//----------------------------------------------------------
+vector<ofFloatColor> Mapper::getFloatColorsCoordinatesToDepthFrame()
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofFloatColor>();
+	}
+	if (!color_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "color pixel is not allocated.";
+		return vector<ofFloatColor>();
+	}
+	UINT depth_size = depth_pixels.size();
+	UINT16* depth_pix = depth_pixels.getPixels();
+	if (depth_to_color_points.size() == 0)
+	{
+		depth_to_color_points.resize(depth_pixels.size());
+	}
+	if (depth_to_float_colors.size() != depth_size)
+	{
+		depth_to_float_colors.resize(depth_size);
+	}
+	p_mapper->MapDepthFrameToColorSpace(depth_pixels.size(), depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+
+	int col_width = color_pixels.getWidth();
+	int col_height = color_pixels.getHeight();
+	for (int i = 0; i < depth_size; i++)
+	{
+		ofFloatColor &col = depth_to_float_colors[i];
+		int index = (int)depth_to_color_points[i].x + (int)depth_to_color_points[i].y * col_width;
+		if (depth_to_color_points[i].x >= 0 && depth_to_color_points[i].x < col_width && depth_to_color_points[i].y >= 0 && depth_to_color_points[i].y < col_height)
+		{
+				col.r = color_pixels[index * 4] / 255.f;
+				col.g = color_pixels[index * 4 + 1] / 255.f;
+				col.b = color_pixels[index * 4 + 2] / 255.f;
+				col.a = color_pixels[index * 4 + 3] / 255.f;
+		}
+		else
+		{
+			col = ofFloatColor(0, 0, 0, 0);
+		}
+	}
+	return depth_to_float_colors;
+}
+
+//----------------------------------------------------------
+vector<ofColor> Mapper::getColorsCoordinatesToDepthFrame()
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return vector<ofColor>();
+	}
+	if (!color_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "color pixel is not allocated.";
+		return vector<ofColor>();
+	}
+	UINT depth_size = depth_pixels.size();
+	UINT16* depth_pix = depth_pixels.getPixels();
+	if (depth_to_color_points.size() == 0)
+	{
+		depth_to_color_points.resize(depth_pixels.size());
+	}
+	if (depth_to_colors.size() != depth_size)
+	{
+		depth_to_colors.resize(depth_size);
+	}
+	p_mapper->MapDepthFrameToColorSpace(depth_pixels.size(), depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+
+	int col_width = color_pixels.getWidth();
+	int col_height = color_pixels.getHeight();
+	for (int i = 0; i < depth_size; i++)
+	{
+		ofColor &col = depth_to_colors[i];
+		int index = (int)depth_to_color_points[i].x + (int)depth_to_color_points[i].y * col_width;
+		if (depth_to_color_points[i].x >= 0 && depth_to_color_points[i].x < col_width && depth_to_color_points[i].y >= 0 && depth_to_color_points[i].y < col_height)
+		{
+			col.r = color_pixels[index * 4];
+			col.g = color_pixels[index * 4 + 1];
+			col.b = color_pixels[index * 4 + 2];
+			col.a = color_pixels[index * 4 + 3];
+		}
+		else
+		{
+			col = ofColor(0, 0, 0, 0);
+		}
+	}
+	return depth_to_colors;
+}
+
+//----------------------------------------------------------
+ofPixels Mapper::getColorFrameCoordinatesToDepthFrame()
+{
+	if (!depth_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
+		return ofPixels();
+	}
+	if (!color_pixels.isAllocated())
+	{
+		ofLogWarning("ofxKinect2::Mapper") << "color pixel is not allocated.";
+		return ofPixels();
+	}
+	UINT depth_size = depth_pixels.size();
+	UINT16* depth_pix = depth_pixels.getPixels();
+	if (depth_to_color_points.size() == 0)
+	{
+		depth_to_color_points.resize(depth_pixels.size());
+	}
+	if (depth_to_colors.size() != depth_size)
+	{
+		depth_to_colors.resize(depth_size);
+	}
+	p_mapper->MapDepthFrameToColorSpace(depth_pixels.size(), depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+
+	int col_width = color_pixels.getWidth();
+	int col_height = color_pixels.getHeight();
+
+	if (!coordinate_color_pixels.isAllocated())
+	{
+		coordinate_color_pixels.allocate(depth_pixels.getWidth(), depth_pixels.getHeight(), OF_PIXELS_RGBA);
+	}
+	for (int i = 0; i < depth_size; i++)
+	{
+		int index = (int)depth_to_color_points[i].x + (int)depth_to_color_points[i].y * col_width;
+		if (depth_to_color_points[i].x >= 0 && depth_to_color_points[i].x < col_width && depth_to_color_points[i].y >= 0 && depth_to_color_points[i].y < col_height)
+		{
+			coordinate_color_pixels[i * 4] = color_pixels[index * 4];
+			coordinate_color_pixels[i * 4 + 1] = color_pixels[index * 4 + 1];
+			coordinate_color_pixels[i * 4 + 2] = color_pixels[index * 4 + 2];
+			coordinate_color_pixels[i * 4 + 3] = color_pixels[index * 4 + 3];
+		}
+		else
+		{
+			coordinate_color_pixels[i * 4] = 0;
+			coordinate_color_pixels[i * 4 + 1] = 0;
+			coordinate_color_pixels[i * 4 + 2] = 0;
+			coordinate_color_pixels[i * 4 + 3] = 0;
+		}
+	}
+	return coordinate_color_pixels;
 }
 /**/
