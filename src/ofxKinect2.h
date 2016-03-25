@@ -15,10 +15,13 @@ namespace ofxKinect2
 	void init();
 	class Device;
 	class Stream;
-	
-	class IrStream;
+	class Mapper;
+
 	class ColorStream;
 	class DepthStream;
+	class IrStream;
+	class BodyIndexStream;
+	class MultiStream;
 
 	class Body;
 	class BodyStream;
@@ -66,26 +69,12 @@ public:
 		return b;
 	}
 
-	void setDepthColorSyncEnabled(bool b = true);
-	bool isDepthColorSyncEnabled() const { return enable_depth_color_sync; }
-
 	DeviceHandle& get() { return device; }
 	const DeviceHandle& get() const { return device; }
 
-	ICoordinateMapper* getMapper() { 
-		if(!mapper)
-		{
-			HRESULT hr = device.kinect2->get_CoordinateMapper(&mapper);
-		}
-		return mapper;
-	}
-
 protected:
-
 	DeviceHandle device;
-	ICoordinateMapper* mapper;
 	vector<ofxKinect2::Stream*> streams;
-	bool enable_depth_color_sync;
 
 	Recorder* recorder;
 };
@@ -94,14 +83,13 @@ class ofxKinect2::Recorder
 {
 };
 
-// stream
+// strneam
 class ofxKinect2::Stream : public ofThread
 {
 	friend class ofxKinect2::Device;
 
 public:
-
-	virtual ~Stream();
+	virtual ~Stream() { }
 
 	virtual void exit();
 
@@ -163,18 +151,21 @@ protected:
 	ofTexture tex;
 	Device* device;
 
-	Stream();
+	Stream() {}
 
 	void threadedFunction();
 
 	bool setup(Device& device, SensorType sensor_type);
-	virtual bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
+	virtual bool readFrame();
 	virtual void setPixels(Frame frame);
 };
 
 class ofxKinect2::ColorStream : public ofxKinect2::Stream
 {
 public:
+	ColorStream() : Stream() {}
+	~ColorStream() {}
+
 	bool setup(ofxKinect2::Device& device)
 	{
 		buffer = NULL;
@@ -198,6 +189,11 @@ public:
 	bool setWidth(int v);
 	bool setHeight(int v);
 	bool setSize(int width, int height);
+    
+    ofColor getColorAt(int x, int y);
+    ofColor getColorAt(ofVec2f color_point);
+	ofFloatColor getFloatColorAt(int x, int y);
+	ofFloatColor getFloatColorAt(ofVec2f color_point);
 
 	ofPixels& getPixelsRef() { return pix.getFrontBuffer(); }
 
@@ -218,13 +214,17 @@ protected:
 	DoubleBuffer<ofPixels> pix;
 	unsigned char* buffer;
 
-	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
+	bool readFrame();
 	void setPixels(Frame frame);
+
 };
 
 class ofxKinect2::DepthStream : public ofxKinect2::Stream
 {
 public:
+	DepthStream() : Stream() {}
+	~DepthStream() {}
+
 	bool setup(ofxKinect2::Device& device)
 	{
 		near_value = 50;
@@ -238,6 +238,9 @@ public:
 	void update();
 	bool updateMode();
 
+    unsigned short getDepthAt(int x, int y);
+	unsigned short getDepthAt(ofVec2f depth_point);
+
 	ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); }
 	ofShortPixels getPixelsRef(int _near, int _far, bool invert = false);
 
@@ -250,8 +253,6 @@ public:
 	inline void setInvert(float invert) { is_invert = invert; }
 	inline bool getInvert() const { return is_invert; }
 
-//	ofVec3f getWorldCoordinateAt(int x, int y);
-
 protected:
 	DoubleBuffer<ofShortPixels> pix;
 
@@ -259,13 +260,16 @@ protected:
 	float far_value;
 	bool is_invert;
 
-	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
+	bool readFrame();
 	void setPixels(Frame frame);
+
 };
 
 class ofxKinect2::IrStream : public ofxKinect2::Stream
 {
 public:
+	IrStream() : Stream() {}
+	~IrStream() {}
 
 	bool setup(ofxKinect2::Device& device)
 	{
@@ -283,10 +287,36 @@ public:
 protected:
 	DoubleBuffer<ofShortPixels> pix;
 
-	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
+	bool readFrame();
 	void setPixels(Frame frame);
 
+};
 
+class ofxKinect2::BodyIndexStream : public ofxKinect2::Stream
+{
+public:
+	BodyIndexStream() : Stream() { colors[0] = ofColor::red; colors[1] = ofColor::green; colors[2] = ofColor::blue; colors[3] = ofColor::cyan; colors[4] = ofColor::magenta; colors[5] = ofColor::yellow; }
+	~BodyIndexStream() { }
+
+	bool setup(ofxKinect2::Device& device)
+	{
+		return Stream::setup(device, SENSOR_BODY_INDEX);
+	}
+
+	bool open();
+	void close();
+
+	void update();
+	bool updateMode();
+
+	ofPixels& getPixelsRef() { return pix.getFrontBuffer(); }
+protected:
+	DoubleBuffer<ofPixels> pix;
+	unsigned char* buffer;
+	ofColor colors[BODY_COUNT];
+
+	bool readFrame();
+	void setPixels(Frame frame);
 };
 
 class ofxKinect2::Body
@@ -352,6 +382,9 @@ private:
 class ofxKinect2::BodyStream : public Stream
 {
 public:
+	BodyStream() : Stream() {}
+	~BodyStream() {}
+
 	bool setup(ofxKinect2::Device& device)
 	{
 		for(int i = 0; i < BODY_COUNT; i++)
@@ -400,35 +433,29 @@ protected:
 	DoubleBuffer<ofShortPixels> pix;
 	vector<Body> bodies;
 
-	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
+	bool readFrame();
 	void setPixels(Frame frame);
 
 };
 
-/*
-class ofxKinect2::ColorMappingStream : public ofxKinect2::Stream
+class ofxKinect2::MultiStream : public ofxKinect2::Stream
 {
 public:
+	MultiStream() : Stream() {}
+	~MultiStream() {}
+
 	bool setup(ofxKinect2::Device& device)
 	{
-//		c_buffer = new unsigned char[c_width * c_height];
-//		color_map = new ColorSpacePoint[d_width * d_height];
-		return Stream::setup(device, SENSOR_DEPTH);
+		buffer = NULL;
+		return Stream::setup(device, SENSOR_COLOR);
 	}
-
 	void exit()
 	{
 		Stream::exit();
-		if (c_buffer)
+		if (buffer)
 		{
-			delete[] c_buffer;
-			c_buffer = NULL;
-		}
-
-		if (color_map)
-		{
-			delete[] color_map;
-			color_map = NULL;
+			delete[] buffer;
+			buffer = NULL;
 		}
 	}
 	bool open();
@@ -437,16 +464,117 @@ public:
 	void update();
 	bool updateMode();
 
+	bool setWidth(int v);
+	bool setHeight(int v);
+	bool setSize(int width, int height);
+
 	ofPixels& getPixelsRef() { return pix.getFrontBuffer(); }
+
+	int getExposureTime();
+	int getFrameInterval();
+	float getGain();
+	float getGamma();
+
+	/*
+	void setAutoExposureEnabled(bool yn = true) {  }
+	bool getAutoExposureEnabled() {  }
+
+	void setAutoWhiteBalanceEnabled(bool yn = true) {  }
+	bool getAutoWhiteBalanceEnabled() {  }
+	*/
 
 protected:
 	DoubleBuffer<ofPixels> pix;
-	BYTE* c_buffer;
-	ColorSpacePoint* color_map;
+	unsigned char* buffer;
 
-	bool readFrame(IMultiSourceFrame* p_multi_frame = NULL);
+	bool readFrame();
 	void setPixels(Frame frame);
+
 };
-/**/
+
+// mapper
+class ofxKinect2::Mapper
+{
+public:
+	Mapper(): p_mapper(NULL), depth_space_points(NULL), camera_space_points(NULL), depth_values(NULL){}
+	~Mapper() { exit(); }
+
+	bool setup(ofxKinect2::Device& device);
+	void exit()
+	{
+		safe_release(p_mapper);
+		if (depth_space_points)
+		{
+			delete depth_space_points;
+			depth_space_points = NULL;
+		}
+		if (camera_space_points)
+		{
+			delete camera_space_points;
+			camera_space_points = NULL;
+		}
+		if (depth_values)
+		{
+			delete depth_values;
+			depth_values = NULL;
+		}
+	}
+
+	bool isReady(bool depth = true, bool color = true) { return ((!depth || depth_pixels.isAllocated()) && (!color || color_pixels.isAllocated())); }
+	void updateDepthFromShortPixels(ofShortPixels& _depth_pixels) { depth_pixels = _depth_pixels; }
+	void updateDepth(ofxKinect2::DepthStream& _depth_stream) { depth_pixels = _depth_stream.getPixelsRef(); }
+	void updateColorFromPixels(ofPixels& _color_pixels) { color_pixels = _color_pixels; }
+	void updateColor(ofxKinect2::ColorStream& _color_stream) { color_pixels = _color_stream.getPixelsRef(); }
+
+	ofVec3f mapDepthToCameraSpace(int x, int y);
+	ofVec3f mapDepthToCameraSpace(ofVec2f depth_point);
+	vector<ofVec3f> mapDepthToCameraSpace();
+	vector<ofVec3f> mapDepthToCameraSpace(vector<ofVec2f> depth_points);
+	vector<ofVec3f> mapDepthToCameraSpace(ofRectangle depth_area);
+
+	ofVec2f mapDepthToColorSpace(int x, int y);
+	ofVec2f mapDepthToColorSpace(ofVec2f depth_point);
+	vector<ofVec2f> mapDepthToColorSpace();
+	vector<ofVec2f> mapDepthToColorSpace(vector<ofVec2f> depth_points);
+	vector<ofVec2f> mapDepthToColorSpace(ofRectangle depth_area);
+
+	vector<ofFloatColor> getFloatColorsCoordinatesToDepthFrame();
+	vector<ofColor> getColorsCoordinatesToDepthFrame();
+	ofPixels getColorFrameCoordinatesToDepthFrame();
+
+	vector<ofVec3f> mapColorToCameraSpace();
+	vector<ofVec2f> mapColorToDepthSpace();
+
+	ofVec2f mapCameraToDepthSpace(float x, float y, float z);
+	ofVec2f mapCameraToDepthSpace(ofVec3f camera_point);
+	vector<ofVec2f> mapCameraToDepthSpace(vector<ofVec3f> camera_points);
+
+	ofVec2f mapCameraToColorSpace(float x, float y, float z);
+	ofVec2f mapCameraToColorSpace(ofVec3f camera_point);
+	vector<ofVec2f> mapCameraToColorSpace(vector<ofVec3f> camera_points);
+
+	ICoordinateMapper* get() { return p_mapper; }
+	const ICoordinateMapper* get() const { return p_mapper; }
+private:
+	Device* device;
+	ICoordinateMapper* p_mapper;
+	ofShortPixels depth_pixels;
+	ofPixels color_pixels;
+	ofPixels coordinate_color_pixels;
+
+	DepthSpacePoint* depth_space_points;
+	CameraSpacePoint* camera_space_points;
+	UINT16* depth_values;
+	vector<ofVec2f> camera_to_depth_points;
+	vector<ofVec2f> depth_to_color_points;
+	vector<ofVec3f> depth_to_camera_points;
+	vector<ofVec2f> color_to_depth_points;
+	vector<ofVec3f> color_to_camera_points;
+
+	vector<ofFloatColor> depth_to_float_colors;
+	vector<ofColor> depth_to_colors;
+};
+
+
 
 #endif // OFX_KINECT2_H

@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<ClCompile Include="src\ofApp.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="src\main.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\..\addons\ofxKinect2\src\ofxKinect2.cpp">
+			<Filter>addons\ofxKinect2\src</Filter>
+		</ClCompile>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src">
+			<UniqueIdentifier>{d8376475-7454-4a24-b08a-aac121d3ad6f}</UniqueIdentifier>
+		</Filter>
+		<Filter Include="addons">
+			<UniqueIdentifier>{71834F65-F3A9-211E-73B8-DC85}</UniqueIdentifier>
+		</Filter>
+		<Filter Include="addons\ofxKinect2">
+			<UniqueIdentifier>{7DBC4951-9986-88A6-A418-3F7E}</UniqueIdentifier>
+		</Filter>
+		<Filter Include="addons\ofxKinect2\src">
+			<UniqueIdentifier>{5D37C889-15B6-4DD7-098B-E848}</UniqueIdentifier>
+		</Filter>
+		<Filter Include="addons\ofxKinect2\src\utils">
+			<UniqueIdentifier>{CC3AD652-2B08-699C-DF5A-035F}</UniqueIdentifier>
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="src\ofApp.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxKinect2\src\ofxKinect2.h">
+			<Filter>addons\ofxKinect2\src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxKinect2\src\ofxKinect2Enums.h">
+			<Filter>addons\ofxKinect2\src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxKinect2\src\ofxKinect2Types.h">
+			<Filter>addons\ofxKinect2\src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxKinect2\src\utils\DepthRemapToRange.h">
+			<Filter>addons\ofxKinect2\src\utils</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxKinect2\src\utils\DoubleBuffer.h">
+			<Filter>addons\ofxKinect2\src\utils</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxKinect2\src\utils\MeshGenerator.h">
+			<Filter>addons\ofxKinect2\src\utils</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<ResourceCompile Include="icon.rc" />
+	</ItemGroup>
+</Project>
