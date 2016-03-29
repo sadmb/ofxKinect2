@@ -736,10 +736,18 @@ void DepthStream::update()
 }
 
 //----------------------------------------------------------
-ofShortPixels DepthStream::getPixelsRef(int _near, int _far, bool invert)
+ofShortPixels& DepthStream::getPixels(int _near, int _far, bool invert)
 {
 	ofShortPixels _pix;
-	depthRemapToRange(getPixelsRef(), _pix, _near, _far, invert);
+	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
+	return _pix;
+}
+
+//----------------------------------------------------------
+const ofShortPixels& DepthStream::getPixels(int _near, int _far, bool invert) const
+{
+	ofShortPixels _pix;
+	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
 	return _pix;
 }
 
@@ -1615,6 +1623,21 @@ bool BodyStream::updateMode()
 	return false;
 }
 
+//----------------------------------------------------------
+ofShortPixels& BodyStream::getPixels(int _near, int _far, bool invert)
+{
+	ofShortPixels _pix;
+	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
+	return _pix;
+}
+
+//----------------------------------------------------------
+const ofShortPixels& BodyStream::getPixels(int _near, int _far, bool invert) const
+{
+	ofShortPixels _pix;
+	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
+	return _pix;
+}
 
 //----------------------------------------------------------
 #pragma mark - MultiStream
@@ -1878,21 +1901,42 @@ bool Mapper::setup(Device& device)
 }
 
 //----------------------------------------------------------
+bool Mapper::isReady(bool depth, bool color)
+{
+	if (depth)
+	{
+		if (!depth_pixels || !depth_pixels->isAllocated())
+		{
+			return false;
+		}
+	}
+
+	if (color)
+	{
+		if (!color_pixels || !color_pixels->isAllocated())
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+//----------------------------------------------------------
 ofVec3f Mapper::mapDepthToCameraSpace(int x, int y)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return ofVec3f();
 	}
 	DepthSpacePoint depth_space_point;
 	depth_space_point.X = x;
 	depth_space_point.Y = y;
-	int index = x + y * depth_pixels.getWidth();
-	UINT16 depth = depth_pixels[index];
+	int index = x + y * depth_pixels->getWidth();
+	UINT16 depth = depth_pixels->getData()[index];
 	if (depth_to_camera_points.size() == 0)
 	{
-		depth_to_camera_points.resize(depth_pixels.size());
+		depth_to_camera_points.resize(depth_pixels->size());
 	}
 	p_mapper->MapDepthPointToCameraSpace(depth_space_point, depth, reinterpret_cast<CameraSpacePoint*>(depth_to_camera_points.data()));
 	return depth_to_camera_points[0];
@@ -1907,44 +1951,41 @@ ofVec3f Mapper::mapDepthToCameraSpace(ofVec2f depth_point)
 //----------------------------------------------------------
 vector<ofVec3f> Mapper::mapDepthToCameraSpace()
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec3f>();
 	}
-	UINT depth_size = depth_pixels.size();
-	UINT16* depth_pix = depth_pixels.getPixels();
+	UINT depth_size = depth_pixels->size();
 	if (depth_to_camera_points.size() != depth_size)
 	{
 		depth_to_camera_points.resize(depth_size);
 	}
-	p_mapper->MapDepthFrameToCameraSpace(depth_size, depth_pix, depth_size, reinterpret_cast<CameraSpacePoint*>(depth_to_camera_points.data()));
+	p_mapper->MapDepthFrameToCameraSpace(depth_size, depth_pixels->getData(), depth_size, reinterpret_cast<CameraSpacePoint*>(depth_to_camera_points.data()));
 	return depth_to_camera_points;
 }
 
 //----------------------------------------------------------
 vector<ofVec3f> Mapper::mapDepthToCameraSpace(vector<ofVec2f> depth_points)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec3f>();
 	}
 	UINT depth_size = depth_points.size();
 	if (!depth_space_points)
 	{
-		depth_space_points = new DepthSpacePoint[depth_pixels.size()];
+		depth_space_points = new DepthSpacePoint[depth_pixels->size()];
 	}
 	if (!depth_values)
 	{
-		depth_values = new UINT16[depth_pixels.size()];
+		depth_values = new UINT16[depth_pixels->size()];
 	}
 	for (int i = 0; i < depth_size; i++)
 	{
 		depth_space_points[i].X = depth_points[i].x;
 		depth_space_points[i].Y = depth_points[i].y;
-		int index = depth_points[i].x + depth_points[i].y * depth_pixels.getWidth();
-		depth_values[i] = depth_pixels[index];
+		int index = depth_points[i].x + depth_points[i].y * depth_pixels->getWidth();
+		depth_values[i] = depth_pixels->getData()[index];
 	}
 
 	if (depth_to_camera_points.size() != depth_size)
@@ -1958,26 +1999,28 @@ vector<ofVec3f> Mapper::mapDepthToCameraSpace(vector<ofVec2f> depth_points)
 //----------------------------------------------------------
 vector<ofVec3f> Mapper::mapDepthToCameraSpace(ofRectangle depth_area)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec3f>();
 	}
 	UINT depth_size = depth_area.getWidth() * depth_area.getHeight();
 	if (!depth_space_points)
 	{
-		depth_space_points = new DepthSpacePoint[depth_pixels.size()];
+		depth_space_points = new DepthSpacePoint[depth_pixels->size()];
 	}
 	if (!depth_values)
 	{
-		depth_values = new UINT16[depth_pixels.size()];
+		depth_values = new UINT16[depth_pixels->size()];
 	}
+	const unsigned short* data = depth_pixels->getData();
+	int width = depth_area.getWidth();
+	int d_width = depth_pixels->getWidth();
 	for (int i = 0; i < depth_size; i++)
 	{
-		depth_space_points[i].X = i % (int)depth_area.getHeight();
-		depth_space_points[i].Y = (int)floor(i / (int)depth_area.getWidth());
-		int index = depth_space_points[i].X + depth_space_points[i].Y * depth_pixels.getWidth();
-		depth_values[i] = depth_pixels[index];
+		depth_space_points[i].X = i % width;
+		depth_space_points[i].Y = (int)floor(i / width);
+		int index = depth_space_points[i].X + depth_space_points[i].Y * d_width;
+		depth_values[i] = data[index];
 	}
 
 	if (depth_to_camera_points.size() != depth_size)
@@ -1991,19 +2034,18 @@ vector<ofVec3f> Mapper::mapDepthToCameraSpace(ofRectangle depth_area)
 //----------------------------------------------------------
 ofVec2f Mapper::mapDepthToColorSpace(int x, int y)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return ofVec2f();
 	}
 	DepthSpacePoint depth_space_point;
 	depth_space_point.X = x;
 	depth_space_point.Y = y;
-	int index = x + y * depth_pixels.getWidth();
-	UINT16 depth = depth_pixels[index];
+	int index = x + y * depth_pixels->getWidth();
+	UINT16 depth = depth_pixels->getData()[index];
 	if (depth_to_color_points.size() == 0)
 	{
-		depth_to_color_points.resize(depth_pixels.size());
+		depth_to_color_points.resize(depth_pixels->size());
 	}
 	p_mapper->MapDepthPointToColorSpace(depth_space_point, depth, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
 	return depth_to_color_points[0];
@@ -2018,43 +2060,42 @@ ofVec2f Mapper::mapDepthToColorSpace(ofVec2f depth_point)
 //----------------------------------------------------------
 vector<ofVec2f> Mapper::mapDepthToColorSpace()
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec2f>();
 	}
-	UINT depth_size = depth_pixels.size();
-	UINT16* depth_pix = depth_pixels.getPixels();
+	UINT depth_size = depth_pixels->size();
 	if (depth_to_color_points.size() != depth_size)
 	{
 		depth_to_color_points.resize(depth_size);
 	}
-	p_mapper->MapDepthFrameToColorSpace(depth_size, depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	p_mapper->MapDepthFrameToColorSpace(depth_size, depth_pixels->getData(), depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
 	return depth_to_color_points;
 }
 
 //----------------------------------------------------------
 vector<ofVec2f> Mapper::mapDepthToColorSpace(vector<ofVec2f> depth_points)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec2f>();
 	}
 	UINT depth_size = depth_points.size();
 	if (!depth_space_points)
 	{
-		depth_space_points = new DepthSpacePoint[depth_pixels.size()];
+		depth_space_points = new DepthSpacePoint[depth_pixels->size()];
 	}
 	if (!depth_values)
 	{
-		depth_values = new UINT16[depth_pixels.size()];
+		depth_values = new UINT16[depth_pixels->size()];
 	}
+	int d_width = depth_pixels->getWidth();
+	const unsigned short* data = depth_pixels->getData();
 	for (int i = 0; i < depth_size; i++)
 	{
 		depth_space_points[i].X = depth_points[i].x;
 		depth_space_points[i].Y = depth_points[i].y;
-		depth_values[i] = depth_pixels[(int)depth_space_points[i].X + (int)depth_space_points[i].Y * (int)depth_pixels.getWidth()];
+		depth_values[i] = data[(int)depth_space_points[i].X + (int)depth_space_points[i].Y * d_width];
 	}
 
 	if (depth_to_color_points.size() != depth_size)
@@ -2067,25 +2108,27 @@ vector<ofVec2f> Mapper::mapDepthToColorSpace(vector<ofVec2f> depth_points)
 //----------------------------------------------------------
 vector<ofVec2f> Mapper::mapDepthToColorSpace(ofRectangle depth_area)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec2f>();
 	}
 	UINT depth_size = depth_area.getWidth() * depth_area.getHeight();
 	if (!depth_space_points)
 	{
-		depth_space_points = new DepthSpacePoint[depth_pixels.size()];
+		depth_space_points = new DepthSpacePoint[depth_pixels->size()];
 	}
 	if (!depth_values)
 	{
-		depth_values = new UINT16[depth_pixels.size()];
+		depth_values = new UINT16[depth_pixels->size()];
 	}
+	int width = depth_area.getWidth();
+	int d_width = depth_pixels->getWidth();
+	const unsigned short* data = depth_pixels->getData();
 	for (int i = 0; i < depth_size; i++)
 	{
-		depth_space_points[i].X = i % (int)depth_area.getHeight();
-		depth_space_points[i].Y = (int)floor(i / (int)depth_area.getWidth());
-		depth_values[i] = depth_pixels[(int)depth_space_points[i].X + (int)depth_space_points[i].Y * (int)depth_pixels.getWidth()];
+		depth_space_points[i].X = i % width;
+		depth_space_points[i].Y = (int)floor(i / width);
+		depth_values[i] = data[(int)depth_space_points[i].X + (int)depth_space_points[i].Y * d_width];
 	}
 
 	if (depth_to_color_points.size() != depth_size)
@@ -2099,50 +2142,42 @@ vector<ofVec2f> Mapper::mapDepthToColorSpace(ofRectangle depth_area)
 //----------------------------------------------------------
 vector<ofVec3f> Mapper::mapColorToCameraSpace()
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, true))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec3f>();
 	}
-	if (!color_pixels.isAllocated())
-	{
-		ofLogWarning("ofxKinect2::Mapper") << "color pixel is not allocated.";
-		return vector<ofVec3f>();
-	}
-	int depth_size = depth_pixels.size();
-	int color_size = color_pixels.size();
+	int depth_size = depth_pixels->size();
+	int color_size = color_pixels->size();
 	if (color_to_camera_points.size() != color_size)
 	{
 		color_to_camera_points.resize(color_size);
 	}
-	p_mapper->MapColorFrameToCameraSpace(depth_size, (UINT16*)depth_pixels.getPixels(), color_size, reinterpret_cast<CameraSpacePoint*>(color_to_camera_points.data()));
+	p_mapper->MapColorFrameToCameraSpace(depth_size, depth_pixels->getData(), color_size, reinterpret_cast<CameraSpacePoint*>(color_to_camera_points.data()));
 	return color_to_camera_points;
 }
 
 //----------------------------------------------------------
 vector<ofVec2f> Mapper::mapColorToDepthSpace()
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, true))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec2f>();
 	}
-	UINT depth_size = depth_pixels.size();
-	UINT color_size = color_pixels.size();
+	UINT depth_size = depth_pixels->size();
+	UINT color_size = color_pixels->size();
 	if (color_to_depth_points.size() != color_size)
 	{
 		color_to_depth_points.resize(color_size);
 	}
-	p_mapper->MapColorFrameToDepthSpace(depth_size, (UINT16*)depth_pixels.getPixels(), color_size, reinterpret_cast<DepthSpacePoint*>(color_to_depth_points.data()));
+	p_mapper->MapColorFrameToDepthSpace(depth_size, depth_pixels->getData(), color_size, reinterpret_cast<DepthSpacePoint*>(color_to_depth_points.data()));
 	return color_to_depth_points;
 }
 
 //----------------------------------------------------------
 ofVec2f Mapper::mapCameraToDepthSpace(float x, float y, float z)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return ofVec2f();
 	}
 	CameraSpacePoint camera_space_point;
@@ -2151,7 +2186,7 @@ ofVec2f Mapper::mapCameraToDepthSpace(float x, float y, float z)
 	camera_space_point.Z = z;
 	if (camera_to_depth_points.size() == 0)
 	{
-		camera_to_depth_points.resize(depth_pixels.size());
+		camera_to_depth_points.resize(depth_pixels->size());
 	}
 	p_mapper->MapCameraPointToDepthSpace(camera_space_point, reinterpret_cast<DepthSpacePoint*>(camera_to_depth_points.data()));
 	return camera_to_depth_points[0];
@@ -2166,15 +2201,14 @@ ofVec2f Mapper::mapCameraToDepthSpace(ofVec3f camera_point)
 //----------------------------------------------------------
 vector<ofVec2f> Mapper::mapCameraToDepthSpace(vector<ofVec3f> camera_points)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec2f>();
 	}
 	UINT camera_size = camera_points.size();
 	if (!camera_space_points)
 	{
-		camera_space_points = new CameraSpacePoint[depth_pixels.size()];
+		camera_space_points = new CameraSpacePoint[depth_pixels->size()];
 	}
 	for (int i = 0; i < camera_size; i++)
 	{
@@ -2194,9 +2228,8 @@ vector<ofVec2f> Mapper::mapCameraToDepthSpace(vector<ofVec3f> camera_points)
 //----------------------------------------------------------
 ofVec2f Mapper::mapCameraToColorSpace(float x, float y, float z)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return ofVec2f();
 	}
 	CameraSpacePoint camera_space_point;
@@ -2205,7 +2238,7 @@ ofVec2f Mapper::mapCameraToColorSpace(float x, float y, float z)
 	camera_space_point.Z = z;
 	if (depth_to_color_points.size() == 0)
 	{
-		depth_to_color_points.resize(depth_pixels.size());
+		depth_to_color_points.resize(depth_pixels->size());
 	}
 	p_mapper->MapCameraPointToColorSpace(camera_space_point, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
 	return depth_to_color_points[0];
@@ -2220,15 +2253,14 @@ ofVec2f Mapper::mapCameraToColorSpace(ofVec3f camera_point)
 //----------------------------------------------------------
 vector<ofVec2f> Mapper::mapCameraToColorSpace(vector<ofVec3f> camera_points)
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, false))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofVec2f>();
 	}
 	UINT camera_size = camera_points.size();
 	if (!camera_space_points)
 	{
-		camera_space_points = new CameraSpacePoint[depth_pixels.size()];
+		camera_space_points = new CameraSpacePoint[depth_pixels->size()];
 	}
 	for (int i = 0; i < camera_size; i++)
 	{
@@ -2249,40 +2281,35 @@ vector<ofVec2f> Mapper::mapCameraToColorSpace(vector<ofVec3f> camera_points)
 //----------------------------------------------------------
 vector<ofFloatColor> Mapper::getFloatColorsCoordinatesToDepthFrame()
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, true))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofFloatColor>();
 	}
-	if (!color_pixels.isAllocated())
-	{
-		ofLogWarning("ofxKinect2::Mapper") << "color pixel is not allocated.";
-		return vector<ofFloatColor>();
-	}
-	UINT depth_size = depth_pixels.size();
-	UINT16* depth_pix = depth_pixels.getPixels();
+	UINT depth_size = depth_pixels->size();
+	const UINT16* depth_pix = depth_pixels->getData();
 	if (depth_to_color_points.size() == 0)
 	{
-		depth_to_color_points.resize(depth_pixels.size());
+		depth_to_color_points.resize(depth_pixels->size());
 	}
 	if (depth_to_float_colors.size() != depth_size)
 	{
 		depth_to_float_colors.resize(depth_size);
 	}
-	p_mapper->MapDepthFrameToColorSpace(depth_pixels.size(), depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	p_mapper->MapDepthFrameToColorSpace(depth_size, depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
 
-	int col_width = color_pixels.getWidth();
-	int col_height = color_pixels.getHeight();
+	int col_width = color_pixels->getWidth();
+	int col_height = color_pixels->getHeight();
+	const unsigned char* data = color_pixels->getData();
 	for (int i = 0; i < depth_size; i++)
 	{
 		ofFloatColor &col = depth_to_float_colors[i];
 		int index = (int)depth_to_color_points[i].x + (int)depth_to_color_points[i].y * col_width;
 		if (depth_to_color_points[i].x >= 0 && depth_to_color_points[i].x < col_width && depth_to_color_points[i].y >= 0 && depth_to_color_points[i].y < col_height)
 		{
-				col.r = color_pixels[index * 4] / 255.f;
-				col.g = color_pixels[index * 4 + 1] / 255.f;
-				col.b = color_pixels[index * 4 + 2] / 255.f;
-				col.a = color_pixels[index * 4 + 3] / 255.f;
+				col.r = data[index * 4] / 255.f;
+				col.g = data[index * 4 + 1] / 255.f;
+				col.b = data[index * 4 + 2] / 255.f;
+				col.a = data[index * 4 + 3] / 255.f;
 		}
 		else
 		{
@@ -2295,40 +2322,35 @@ vector<ofFloatColor> Mapper::getFloatColorsCoordinatesToDepthFrame()
 //----------------------------------------------------------
 vector<ofColor> Mapper::getColorsCoordinatesToDepthFrame()
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, true))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return vector<ofColor>();
 	}
-	if (!color_pixels.isAllocated())
-	{
-		ofLogWarning("ofxKinect2::Mapper") << "color pixel is not allocated.";
-		return vector<ofColor>();
-	}
-	UINT depth_size = depth_pixels.size();
-	UINT16* depth_pix = depth_pixels.getPixels();
+	UINT depth_size = depth_pixels->size();
+	const UINT16* depth_pix = depth_pixels->getData();
 	if (depth_to_color_points.size() == 0)
 	{
-		depth_to_color_points.resize(depth_pixels.size());
+		depth_to_color_points.resize(depth_size);
 	}
 	if (depth_to_colors.size() != depth_size)
 	{
 		depth_to_colors.resize(depth_size);
 	}
-	p_mapper->MapDepthFrameToColorSpace(depth_pixels.size(), depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	p_mapper->MapDepthFrameToColorSpace(depth_size, depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
 
-	int col_width = color_pixels.getWidth();
-	int col_height = color_pixels.getHeight();
+	int col_width = color_pixels->getWidth();
+	int col_height = color_pixels->getHeight();
+	const unsigned char* data = color_pixels->getData();
 	for (int i = 0; i < depth_size; i++)
 	{
 		ofColor &col = depth_to_colors[i];
 		int index = (int)depth_to_color_points[i].x + (int)depth_to_color_points[i].y * col_width;
 		if (depth_to_color_points[i].x >= 0 && depth_to_color_points[i].x < col_width && depth_to_color_points[i].y >= 0 && depth_to_color_points[i].y < col_height)
 		{
-			col.r = color_pixels[index * 4];
-			col.g = color_pixels[index * 4 + 1];
-			col.b = color_pixels[index * 4 + 2];
-			col.a = color_pixels[index * 4 + 3];
+			col.r = data[index * 4];
+			col.g = data[index * 4 + 1];
+			col.b = data[index * 4 + 2];
+			col.a = data[index * 4 + 3];
 		}
 		else
 		{
@@ -2341,44 +2363,39 @@ vector<ofColor> Mapper::getColorsCoordinatesToDepthFrame()
 //----------------------------------------------------------
 ofPixels Mapper::getColorFrameCoordinatesToDepthFrame()
 {
-	if (!depth_pixels.isAllocated())
+	if (!isReady(true, true))
 	{
-		ofLogWarning("ofxKinect2::Mapper") << "depth pixel is not allocated.";
 		return ofPixels();
 	}
-	if (!color_pixels.isAllocated())
-	{
-		ofLogWarning("ofxKinect2::Mapper") << "color pixel is not allocated.";
-		return ofPixels();
-	}
-	UINT depth_size = depth_pixels.size();
-	UINT16* depth_pix = depth_pixels.getPixels();
+	UINT depth_size = depth_pixels->size();
+	const UINT16* depth_pix = depth_pixels->getData();
 	if (depth_to_color_points.size() == 0)
 	{
-		depth_to_color_points.resize(depth_pixels.size());
+		depth_to_color_points.resize(depth_size);
 	}
 	if (depth_to_colors.size() != depth_size)
 	{
 		depth_to_colors.resize(depth_size);
 	}
-	p_mapper->MapDepthFrameToColorSpace(depth_pixels.size(), depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
+	p_mapper->MapDepthFrameToColorSpace(depth_size, depth_pix, depth_size, reinterpret_cast<ColorSpacePoint*>(depth_to_color_points.data()));
 
-	int col_width = color_pixels.getWidth();
-	int col_height = color_pixels.getHeight();
+	int col_width = color_pixels->getWidth();
+	int col_height = color_pixels->getHeight();
 
 	if (!coordinate_color_pixels.isAllocated())
 	{
-		coordinate_color_pixels.allocate(depth_pixels.getWidth(), depth_pixels.getHeight(), OF_PIXELS_RGBA);
+		coordinate_color_pixels.allocate(depth_pixels->getWidth(), depth_pixels->getHeight(), OF_PIXELS_RGBA);
 	}
+	const unsigned char* data = color_pixels->getData();
 	for (int i = 0; i < depth_size; i++)
 	{
 		int index = (int)depth_to_color_points[i].x + (int)depth_to_color_points[i].y * col_width;
 		if (depth_to_color_points[i].x >= 0 && depth_to_color_points[i].x < col_width && depth_to_color_points[i].y >= 0 && depth_to_color_points[i].y < col_height)
 		{
-			coordinate_color_pixels[i * 4] = color_pixels[index * 4];
-			coordinate_color_pixels[i * 4 + 1] = color_pixels[index * 4 + 1];
-			coordinate_color_pixels[i * 4 + 2] = color_pixels[index * 4 + 2];
-			coordinate_color_pixels[i * 4 + 3] = color_pixels[index * 4 + 3];
+			coordinate_color_pixels[i * 4] = data[index * 4];
+			coordinate_color_pixels[i * 4 + 1] = data[index * 4 + 1];
+			coordinate_color_pixels[i * 4 + 2] = data[index * 4 + 2];
+			coordinate_color_pixels[i * 4 + 3] = data[index * 4 + 3];
 		}
 		else
 		{

@@ -27,7 +27,8 @@ void ofApp::setup(){
     
     if(mapper_.setup(*device_))
     {
-        
+		mapper_.setColor(color_);
+		mapper_.setDepth(depth_);
     }
 
 	scale_ = 20;
@@ -41,15 +42,6 @@ void ofApp::setup(){
 //--------------------------------------------------------------
 void ofApp::update(){
 	device_->update();
-    
-	if (color_.isFrameNew())
-	{
-		mapper_.updateColor(color_);
-	}
-	if (depth_.isFrameNew())
-	{
-		mapper_.updateDepth(depth_);
-	}
 }
 
 //--------------------------------------------------------------

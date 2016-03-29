@@ -195,7 +195,9 @@ public:
 	ofFloatColor getFloatColorAt(int x, int y);
 	ofFloatColor getFloatColorAt(ofVec2f color_point);
 
-	ofPixels& getPixelsRef() { return pix.getFrontBuffer(); }
+	ofPixels& getPixels() { return pix.getFrontBuffer(); }
+	const ofPixels& getPixels() const { return pix.getFrontBuffer(); }
+	OF_DEPRECATED_MSG("Use getPixels() instead ", ofPixels& getPixelsRef() { return pix.getFrontBuffer(); });
 
 	int getExposureTime();
 	int getFrameInterval();
@@ -241,8 +243,12 @@ public:
     unsigned short getDepthAt(int x, int y);
 	unsigned short getDepthAt(ofVec2f depth_point);
 
-	ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); }
-	ofShortPixels getPixelsRef(int _near, int _far, bool invert = false);
+	ofShortPixels& getPixels() { return pix.getFrontBuffer(); }
+	const ofShortPixels& getPixels() const { return pix.getFrontBuffer(); }
+	ofShortPixels& getPixels(int _near, int _far, bool invert = false);
+	const ofShortPixels& getPixels(int _near, int _far, bool invert = false) const;
+	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); });
+	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels getPixelsRef(int _near, int _far, bool invert = false););
 
 	inline void setNear(float _near) { near_value = _near; }
 	inline float getNear() const { return near_value; }
@@ -281,8 +287,9 @@ public:
 	void update();
 	bool updateMode();
 
-
-	ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); }
+	ofShortPixels& getPixels() { return pix.getFrontBuffer(); }
+	const ofShortPixels& getPixels() const { return pix.getFrontBuffer(); }
+	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); });
 
 protected:
 	DoubleBuffer<ofShortPixels> pix;
@@ -309,7 +316,9 @@ public:
 	void update();
 	bool updateMode();
 
-	ofPixels& getPixelsRef() { return pix.getFrontBuffer(); }
+	ofPixels& getPixels() { return pix.getFrontBuffer(); }
+	const ofPixels& getPixels() const { return pix.getFrontBuffer(); }
+	OF_DEPRECATED_MSG("Use getPixels() instead ", ofPixels& getPixelsRef() { return pix.getFrontBuffer(); });
 protected:
 	DoubleBuffer<ofPixels> pix;
 	unsigned char* buffer;
@@ -424,8 +433,12 @@ public:
 		return bodies[0];
 	}
 
-	ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); }
-	ofShortPixels getPixelsRef(int _near, int _far, bool invert = false);
+	ofShortPixels& getPixels() { return pix.getFrontBuffer(); }
+	const ofShortPixels& getPixels() const { return pix.getFrontBuffer(); }
+	ofShortPixels& getPixels(int _near, int _far, bool invert = false);
+	const ofShortPixels& getPixels(int _near, int _far, bool invert = false) const;
+	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); });
+	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels getPixelsRef(int _near, int _far, bool invert = false););
 
 	ofPoint righthand_pos_;
 
@@ -496,7 +509,7 @@ protected:
 class ofxKinect2::Mapper
 {
 public:
-	Mapper(): p_mapper(NULL), depth_space_points(NULL), camera_space_points(NULL), depth_values(NULL){}
+	Mapper(): p_mapper(NULL), depth_space_points(NULL), camera_space_points(NULL), depth_values(NULL), depth_pixels(NULL), color_pixels(NULL){}
 	~Mapper() { exit(); }
 
 	bool setup(ofxKinect2::Device& device);
@@ -518,13 +531,14 @@ public:
 			delete depth_values;
 			depth_values = NULL;
 		}
+
 	}
 
-	bool isReady(bool depth = true, bool color = true) { return ((!depth || depth_pixels.isAllocated()) && (!color || color_pixels.isAllocated())); }
-	void updateDepthFromShortPixels(ofShortPixels& _depth_pixels) { depth_pixels = _depth_pixels; }
-	void updateDepth(ofxKinect2::DepthStream& _depth_stream) { depth_pixels = _depth_stream.getPixelsRef(); }
-	void updateColorFromPixels(ofPixels& _color_pixels) { color_pixels = _color_pixels; }
-	void updateColor(ofxKinect2::ColorStream& _color_stream) { color_pixels = _color_stream.getPixelsRef(); }
+	bool isReady(bool depth = true, bool color = true);
+	void setDepthFromShortPixels(const ofShortPixels* _depth_pixels) { depth_pixels = _depth_pixels; }
+	void setDepth(ofxKinect2::DepthStream& _depth_stream) { depth_pixels = &_depth_stream.getPixels(); }
+	void setColorFromPixels(const ofPixels* _color_pixels) { color_pixels = _color_pixels; }
+	void setColor(ofxKinect2::ColorStream& _color_stream) { color_pixels = &_color_stream.getPixels(); }
 
 	ofVec3f mapDepthToCameraSpace(int x, int y);
 	ofVec3f mapDepthToCameraSpace(ofVec2f depth_point);
@@ -558,8 +572,8 @@ public:
 private:
 	Device* device;
 	ICoordinateMapper* p_mapper;
-	ofShortPixels depth_pixels;
-	ofPixels color_pixels;
+	const ofShortPixels* depth_pixels;
+	const ofPixels* color_pixels;
 	ofPixels coordinate_color_pixels;
 
 	DepthSpacePoint* depth_space_points;
