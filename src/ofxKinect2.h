@@ -21,7 +21,6 @@ namespace ofxKinect2
 	class DepthStream;
 	class IrStream;
 	class BodyIndexStream;
-	class MultiStream;
 
 	class Body;
 	class BodyStream;
@@ -450,60 +449,6 @@ public:
 protected:
 	DoubleBuffer<ofShortPixels> pix;
 	vector<Body> bodies;
-
-	bool readFrame();
-	void setPixels(Frame frame);
-
-};
-
-class ofxKinect2::MultiStream : public ofxKinect2::Stream
-{
-public:
-	MultiStream() : Stream() {}
-	~MultiStream() {}
-
-	bool setup(ofxKinect2::Device& device)
-	{
-		buffer = NULL;
-		return Stream::setup(device, SENSOR_COLOR);
-	}
-	void exit()
-	{
-		Stream::exit();
-		if (buffer)
-		{
-			delete[] buffer;
-			buffer = NULL;
-		}
-	}
-	bool open();
-	void close();
-
-	void update();
-	bool updateMode();
-
-	bool setWidth(int v);
-	bool setHeight(int v);
-	bool setSize(int width, int height);
-
-	ofPixels& getPixelsRef() { return pix.getFrontBuffer(); }
-
-	int getExposureTime();
-	int getFrameInterval();
-	float getGain();
-	float getGamma();
-
-	/*
-	void setAutoExposureEnabled(bool yn = true) {  }
-	bool getAutoExposureEnabled() {  }
-
-	void setAutoWhiteBalanceEnabled(bool yn = true) {  }
-	bool getAutoWhiteBalanceEnabled() {  }
-	*/
-
-protected:
-	DoubleBuffer<ofPixels> pix;
-	unsigned char* buffer;
 
 	bool readFrame();
 	void setPixels(Frame frame);
