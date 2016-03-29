@@ -112,7 +112,11 @@ public:
 	virtual bool setHeight(int v);
 	virtual bool setSize(int width, int height);
 
-	ofTexture& getTextureReference() {return tex;}
+
+
+	ofTexture& getTexture() { return tex; }
+	const ofTexture& getTexture() const { return tex; }
+	OF_DEPRECATED_MSG("Use getTexture() instead ", ofTexture& getTextureReference() { return tex; });
 
 	int getFps();
 	bool setFps(int v);
