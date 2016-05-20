@@ -661,17 +661,12 @@ bool DepthStream::readFrame()
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_frame->get_DepthMinReliableDistance((USHORT*)&near_value);
+			hr = p_frame->get_DepthMinReliableDistance((USHORT*)&reliable_near_value);
 		}
 
 		if (SUCCEEDED(hr))
 		{
-			hr = p_frame->get_DepthMaxReliableDistance((USHORT*)&far_value);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = p_frame->get_DepthMinReliableDistance((USHORT*)&near_value);
+			hr = p_frame->get_DepthMaxReliableDistance((USHORT*)&reliable_far_value);
 		}
 
 		if (SUCCEEDED(hr))
@@ -731,9 +726,18 @@ void DepthStream::update()
 
 	if (lock())
 	{
-		ofShortPixels _pix;
-		depthRemapToRange(pix.getFrontBuffer(), _pix, near_value, far_value, is_invert);
-		tex.loadData(_pix);
+		if (near_value != 0 || far_value != 50000)
+		{
+			ofShortPixels _pix;
+			depthRemapToRange(pix.getFrontBuffer(), _pix, near_value, far_value, is_invert);
+			tex.loadData(_pix);
+		}
+		else
+		{
+			ofShortPixels _pix;
+			depthRemapToRange(pix.getFrontBuffer(), _pix, 50, 10000, is_invert);
+			tex.loadData(pix.getFrontBuffer());
+		}
 		Stream::update();
 		unlock();
 	}
@@ -785,8 +789,6 @@ bool DepthStream::open()
 		return false;
 	}
 	is_invert = true;
-	near_value = 0;
-	far_value = 10000;
 	IDepthFrameSource* p_source = NULL;
 	HRESULT hr;
 

@@ -84,13 +84,14 @@ void ofApp::draw(){
 	ofPopMatrix();
 	cam_.end();
 
+	float f = ofGetElapsedTimeMillis() % 10000 / 10000. * 2 * PI;
+	cam_.setPosition(200 * cos(f) - 100, 0, 200 * sin(f) - 100);
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
 	switch (key)
 	{
-	case OF_KEY_UP:
 	case OF_KEY_RIGHT:
 		scale_++;
 		if (scale_ > 100)
@@ -98,7 +99,6 @@ void ofApp::keyPressed(int key){
 			scale_ = 100;
 		}
 		break;
-	case OF_KEY_DOWN:
 	case OF_KEY_LEFT:
 		scale_--;
 		if (scale_ < 1)

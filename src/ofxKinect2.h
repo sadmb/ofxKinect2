@@ -233,8 +233,10 @@ public:
 
 	bool setup(ofxKinect2::Device& device)
 	{
-		near_value = 50;
-		far_value = 10000;
+		near_value = 0;
+		far_value = 50000;
+		reliable_near_value = 0;
+		reliable_far_value = 0;
 		return Stream::setup(device, SENSOR_DEPTH);
 	}
 
@@ -260,6 +262,9 @@ public:
 	inline void setFar(float _far) { far_value = _far; }
 	inline float getFar() const { return far_value; }
 
+	inline float getReliableNear() const { return reliable_near_value; }
+	inline float getReliableFar() const { return reliable_far_value; }
+
 	inline void setInvert(float invert) { is_invert = invert; }
 	inline bool getInvert() const { return is_invert; }
 
@@ -268,6 +273,8 @@ protected:
 
 	float near_value;
 	float far_value;
+	float reliable_near_value;
+	float reliable_far_value;
 	bool is_invert;
 
 	bool readFrame();
