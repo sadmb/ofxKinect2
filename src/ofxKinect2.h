@@ -251,8 +251,8 @@ public:
 
 	ofFloatPixels& getPixels();
 	const ofFloatPixels& getPixels() const;
-	ofFloatPixels& getPixels(float _near, float _far, bool invert = false);
-	const ofFloatPixels& getPixels(float _near, float _far, bool invert = false) const;
+	ofFloatPixels& getPixels(int _near, int _far, bool invert = false);
+	const ofFloatPixels& getPixels(int _near, int _far, bool invert = false) const;
 
 	ofShortPixels& getRawPixels() { return pix.getFrontBuffer(); }
 	const ofShortPixels& getRawPixels() const { return pix.getFrontBuffer(); }

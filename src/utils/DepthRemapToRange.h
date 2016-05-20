@@ -30,7 +30,7 @@ namespace ofxKinect2
 		}
 	}
 
-	inline void depthRemapToRange(const ofShortPixels &src, ofFloatPixels &dst, float _near, float _far, int invert)
+	inline void depthRemapToRange(const ofShortPixels &src, ofFloatPixels &dst, int _near, int _far, int invert)
 	{
 		int N = src.getWidth() * src.getHeight();
 		dst.allocate(src.getWidth(), src.getHeight(), 1);

@@ -759,7 +759,7 @@ const ofFloatPixels& DepthStream::getPixels() const
 }
 
 //----------------------------------------------------------
-ofFloatPixels& DepthStream::getPixels(float _near, float _far, bool invert)
+ofFloatPixels& DepthStream::getPixels(int _near, int _far, bool invert)
 {
 	ofFloatPixels _pix;
 	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
@@ -767,7 +767,7 @@ ofFloatPixels& DepthStream::getPixels(float _near, float _far, bool invert)
 }
 
 //----------------------------------------------------------
-const ofFloatPixels& DepthStream::getPixels(float _near, float _far, bool invert) const
+const ofFloatPixels& DepthStream::getPixels(int _near, int _far, bool invert) const
 {
 	ofFloatPixels _pix;
 	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
