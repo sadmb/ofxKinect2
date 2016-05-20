@@ -249,10 +249,15 @@ public:
     unsigned short getDepthAt(int x, int y);
 	unsigned short getDepthAt(ofVec2f depth_point);
 
-	ofShortPixels& getPixels() { return pix.getFrontBuffer(); }
-	const ofShortPixels& getPixels() const { return pix.getFrontBuffer(); }
-	ofShortPixels& getPixels(int _near, int _far, bool invert = false);
-	const ofShortPixels& getPixels(int _near, int _far, bool invert = false) const;
+	ofFloatPixels& getPixels();
+	const ofFloatPixels& getPixels() const;
+	ofFloatPixels& getPixels(float _near, float _far, bool invert = false);
+	const ofFloatPixels& getPixels(float _near, float _far, bool invert = false) const;
+
+	ofShortPixels& getRawPixels() { return pix.getFrontBuffer(); }
+	const ofShortPixels& getRawPixels() const { return pix.getFrontBuffer(); }
+	ofShortPixels& getRawPixels(int _near, int _far, bool invert = false);
+	const ofShortPixels& getRawPixels(int _near, int _far, bool invert = false) const;
 	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); });
 	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels getPixelsRef(int _near, int _far, bool invert = false););
 

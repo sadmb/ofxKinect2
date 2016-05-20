@@ -735,7 +735,6 @@ void DepthStream::update()
 		else
 		{
 			ofShortPixels _pix;
-			depthRemapToRange(pix.getFrontBuffer(), _pix, 50, 10000, is_invert);
 			tex.loadData(pix.getFrontBuffer());
 		}
 		Stream::update();
@@ -744,7 +743,39 @@ void DepthStream::update()
 }
 
 //----------------------------------------------------------
-ofShortPixels& DepthStream::getPixels(int _near, int _far, bool invert)
+ofFloatPixels& DepthStream::getPixels()
+{
+	ofFloatPixels _pix;
+	depthRemapToRange(getPixels(), _pix, 0.f, 1.f, is_invert);
+	return _pix;
+}
+
+//----------------------------------------------------------
+const ofFloatPixels& DepthStream::getPixels() const
+{
+	ofFloatPixels _pix;
+	depthRemapToRange(getPixels(), _pix, 0.f, 1.f, is_invert);
+	return _pix;
+}
+
+//----------------------------------------------------------
+ofFloatPixels& DepthStream::getPixels(float _near, float _far, bool invert)
+{
+	ofFloatPixels _pix;
+	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
+	return _pix;
+}
+
+//----------------------------------------------------------
+const ofFloatPixels& DepthStream::getPixels(float _near, float _far, bool invert) const
+{
+	ofFloatPixels _pix;
+	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
+	return _pix;
+}
+
+//----------------------------------------------------------
+ofShortPixels& DepthStream::getRawPixels(int _near, int _far, bool invert)
 {
 	ofShortPixels _pix;
 	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
@@ -752,7 +783,7 @@ ofShortPixels& DepthStream::getPixels(int _near, int _far, bool invert)
 }
 
 //----------------------------------------------------------
-const ofShortPixels& DepthStream::getPixels(int _near, int _far, bool invert) const
+const ofShortPixels& DepthStream::getRawPixels(int _near, int _far, bool invert) const
 {
 	ofShortPixels _pix;
 	depthRemapToRange(getPixels(), _pix, _near, _far, invert);
