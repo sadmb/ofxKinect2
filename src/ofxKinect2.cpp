@@ -1269,7 +1269,6 @@ void Body::drawBone(JointType joint0, JointType joint1, int x, int y, int w, int
 {
 	if(is_tracked)
 	{
-		ofPushStyle();
 		TrackingState state0 = joints[joint0].TrackingState;
 		TrackingState state1 = joints[joint1].TrackingState;
 
@@ -1283,6 +1282,7 @@ void Body::drawBone(JointType joint0, JointType joint1, int x, int y, int w, int
 			return;
 		}
 
+		ofPushStyle();
 		if((state0 == TrackingState_Tracked) && (state1 == TrackingState_Tracked))
 		{
 			ofSetColor(ofColor::green);
