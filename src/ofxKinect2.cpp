@@ -1165,6 +1165,8 @@ void Body::update(IBody* body)
 
 	HRESULT hr = body->get_HandLeftState(&left_hand_state);
 	hr = body->get_HandRightState(&right_hand_state);
+	hr = body->get_HandLeftConfidence(&left_hand_confidence);
+	hr = body->get_HandRightConfidence(&right_hand_confidence);
 
 	body->get_LeanTrackingState(&lean_state);
 	PointF pnt;
