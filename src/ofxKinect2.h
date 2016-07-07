@@ -427,6 +427,7 @@ public:
 	void drawHandRight(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
 	void drawLean(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
 
+	ofVec4f getFloorClipPlane() const { return floor_clip_plane; }
 
 	inline size_t getNumBodies() { return bodies.size(); }
 	const vector<Body> getBodies() { return bodies; }
@@ -454,6 +455,7 @@ public:
 protected:
 	DoubleBuffer<ofShortPixels> pix;
 	vector<Body> bodies;
+	ofVec4f floor_clip_plane;
 
 	bool readFrame();
 	void setPixels(Frame frame);

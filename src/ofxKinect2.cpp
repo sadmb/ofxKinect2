@@ -1391,6 +1391,15 @@ bool BodyStream::readFrame()
 
 	if (SUCCEEDED(hr))
 	{
+		Vector4 floor;
+		hr = p_frame->get_FloorClipPlane(&floor);
+		if (SUCCEEDED(hr)) {
+			floor_clip_plane.x = floor.x;
+			floor_clip_plane.y = floor.y;
+			floor_clip_plane.z = floor.z;
+			floor_clip_plane.w = floor.w;
+		}
+
 		hr = p_frame->get_RelativeTime((INT64*)&frame.timestamp);
 
 		IBody* ppBodies[BODY_COUNT] = {0};
