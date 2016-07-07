@@ -22,8 +22,8 @@ public:
 		float fovH = depth_stream.getHorizontalFieldOfView();
 		float fovV = depth_stream.getVerticalFieldOfView();
 		
-		xzFactor = tan(fovH * 0.5) * 2;
-		yzFactor = tan(fovV * 0.5) * -2;
+		xzFactor = tan(ofDegToRad(fovH) * 0.5) * 2;
+		yzFactor = tan(ofDegToRad(fovV) * 0.5) * -2;
 	}
 	
 	const ofMesh& update(const ofShortPixels& depth, const ofPixels& color = ofPixels())
