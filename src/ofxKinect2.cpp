@@ -731,9 +731,6 @@ void DepthStream::update()
 
 	if (lock())
 	{
-		ofShortPixels _pix;
-		depthRemapToRange(pix.getFrontBuffer(), _pix, near_value, far_value, is_invert);
-		tex.loadData(_pix);
 		Stream::update();
 		unlock();
 	}
