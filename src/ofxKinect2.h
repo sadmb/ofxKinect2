@@ -498,7 +498,7 @@ public:
 
 	bool isReady(bool depth = true, bool color = true);
 	void setDepthFromShortPixels(const ofShortPixels* _depth_pixels) { depth_pixels = _depth_pixels; }
-	void setDepth(ofxKinect2::DepthStream& _depth_stream) { depth_pixels = &_depth_stream.getPixels(); }
+	void setDepth(ofxKinect2::DepthStream& _depth_stream) { depth_pixels = &_depth_stream.getRawPixels(); }
 	void setColorFromPixels(const ofPixels* _color_pixels) { color_pixels = _color_pixels; }
 	void setColor(ofxKinect2::ColorStream& _color_stream) { color_pixels = &_color_stream.getPixels(); }
 
@@ -549,6 +549,8 @@ private:
 
 	vector<ofFloatColor> depth_to_float_colors;
 	vector<ofColor> depth_to_colors;
+
+	IKinectGestureRecognizer* recog;
 };
 
 

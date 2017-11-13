@@ -502,7 +502,7 @@ bool ColorStream::open()
 	{
 		int res_x, res_y = 0;
 		hr = p_frame_description->get_Width(&res_x);
-		hr = p_frame_description->get_Width(&res_y);
+		hr = p_frame_description->get_Height(&res_y);
 		frame.mode.resolution_x = res_x;
 		frame.mode.resolution_y = res_y;
 		frame.width = res_x;
@@ -726,17 +726,10 @@ void DepthStream::update()
 
 	if (lock())
 	{
-		if (near_value != 0 || far_value != 50000)
-		{
-			ofShortPixels _pix;
-			depthRemapToRange(pix.getFrontBuffer(), _pix, near_value, far_value, is_invert);
-			tex.loadData(_pix);
-		}
-		else
-		{
-			ofShortPixels _pix;
-			tex.loadData(pix.getFrontBuffer());
-		}
+        ofShortPixels _pix;
+        depthRemapToRange(pix.getFrontBuffer(), _pix, near_value, far_value, is_invert);
+        tex.loadData(_pix);
+        
 		Stream::update();
 		unlock();
 	}
@@ -1697,6 +1690,7 @@ bool Mapper::setup(Device& device)
 		ofLogWarning("ofxKinect2::Mapper") << "Cannot get Coordinate Mapper.";
 		return false;
 	}
+
 }
 
 //----------------------------------------------------------
