@@ -338,7 +338,7 @@ class ofxKinect2::Body
 public:
 	typedef ofPtr<Body> Ref;
 
-	Body():left_hand_state(HandState_Unknown), right_hand_state(HandState_Unknown), is_tracked(false), is_update_scale(false) {
+	Body():left_hand_state(HandState_Unknown), right_hand_state(HandState_Unknown), left_hand_confidence(TrackingConfidence_Low), right_hand_confidence(TrackingConfidence_Low), is_tracked(false), is_update_scale(false) {
 		joints.resize(JointType_Count);
 		joint_points.resize(JointType_Count);
 	}
@@ -367,6 +367,9 @@ public:
 	inline HandState getLeftHandState() const { return left_hand_state; }
 	inline HandState getRightHandState() const { return left_hand_state; }
 
+	inline TrackingConfidence getLeftHandConfidence() const { return left_hand_confidence; }
+	inline TrackingConfidence getRightHandConfidence() const { return left_hand_confidence; }
+
 	inline size_t getNumJoints() { return JointType_Count; }
 
 	const Joint& getJoint(size_t idx) { return joints[idx]; }
@@ -388,6 +391,8 @@ private:
 	HandState left_hand_state;
 	HandState right_hand_state;
 
+	TrackingConfidence left_hand_confidence, right_hand_confidence;
+	
 	ofPoint jointToScreen(const JointType jointType, int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
 	ofPoint bodyPointToScreen(const CameraSpacePoint& bodyPoint, int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight());
 };
@@ -422,6 +427,7 @@ public:
 	void drawHandRight(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
 	void drawLean(int x = 0, int y = 0, int w = ofGetWidth(), int h = ofGetHeight(), size_t idx = BODY_COUNT);
 
+	ofVec4f getFloorClipPlane() const { return floor_clip_plane; }
 
 	inline size_t getNumBodies() { return bodies.size(); }
 	const vector<Body> getBodies() { return bodies; }
@@ -449,6 +455,7 @@ public:
 protected:
 	DoubleBuffer<ofShortPixels> pix;
 	vector<Body> bodies;
+	ofVec4f floor_clip_plane;
 
 	bool readFrame();
 	void setPixels(Frame frame);

@@ -1162,6 +1162,8 @@ void Body::update(IBody* body)
 
 	HRESULT hr = body->get_HandLeftState(&left_hand_state);
 	hr = body->get_HandRightState(&right_hand_state);
+	hr = body->get_HandLeftConfidence(&left_hand_confidence);
+	hr = body->get_HandRightConfidence(&right_hand_confidence);
 
 	body->get_LeanTrackingState(&lean_state);
 	PointF pnt;
@@ -1386,6 +1388,15 @@ bool BodyStream::readFrame()
 
 	if (SUCCEEDED(hr))
 	{
+		Vector4 floor;
+		hr = p_frame->get_FloorClipPlane(&floor);
+		if (SUCCEEDED(hr)) {
+			floor_clip_plane.x = floor.x;
+			floor_clip_plane.y = floor.y;
+			floor_clip_plane.z = floor.z;
+			floor_clip_plane.w = floor.w;
+		}
+
 		hr = p_frame->get_RelativeTime((INT64*)&frame.timestamp);
 
 		IBody* ppBodies[BODY_COUNT] = {0};
