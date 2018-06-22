@@ -365,7 +365,7 @@ public:
 	inline bool isTracked() const { return is_tracked;}
 
 	inline HandState getLeftHandState() const { return left_hand_state; }
-	inline HandState getRightHandState() const { return left_hand_state; }
+	inline HandState getRightHandState() const { return right_hand_state; }
 
 	inline size_t getNumJoints() { return JointType_Count; }
 
@@ -443,8 +443,6 @@ public:
 	const ofShortPixels& getPixels(int _near, int _far, bool invert = false) const;
 	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels& getPixelsRef() { return pix.getFrontBuffer(); });
 	OF_DEPRECATED_MSG("Use getPixels() instead ", ofShortPixels getPixelsRef(int _near, int _far, bool invert = false););
-
-	ofPoint righthand_pos_;
 
 protected:
 	DoubleBuffer<ofShortPixels> pix;
